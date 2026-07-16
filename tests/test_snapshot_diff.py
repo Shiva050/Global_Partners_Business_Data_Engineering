@@ -75,6 +75,16 @@ def test_insert_update_delete_unchanged(spark):
     assert out[("o1", "l3")]["item_price"] == 9.0      # delete emits last-known value
 
 
+def test_cdc_seq_orders_later_batch_after_earlier(spark):
+    # The LSN mimic: a change in a later batch must sort AFTER the same row's
+    # change in an earlier batch, so Silver's "latest cdc_seq wins" collapse works.
+    cur = _snap(spark, [("o1", "l1", 5.0)])
+    early = compute_cdc(cur, None, SPEC, "2026-07-15", batch_ts="2026-07-15").collect()[0]
+    late = compute_cdc(cur, None, SPEC, "2026-07-16", batch_ts="2026-07-16").collect()[0]
+    assert "cdc_seq" in early and "cdc_commit_ts" in early
+    assert late["cdc_seq"] > early["cdc_seq"]          # string compare, zero-padded -> chronological
+
+
 def test_uppercase_source_columns_are_normalized(spark):
     # order_* snapshots arrive UPPERCASE; the job must lowercase them so the
     # config's lowercase keys align and downstream schema is uniform.

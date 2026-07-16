@@ -77,13 +77,37 @@ def _prep(df: DataFrame, src_cols: List[str], keys: List[str], side: str) -> Dat
     )
 
 
-def _add_audit(df: DataFrame, snapshot_date: str) -> DataFrame:
-    return df.withColumn("cdc_snapshot_dt", F.lit(snapshot_date)).withColumn(
-        "cdc_processed_at", F.current_timestamp()
+def add_cdc_headers(df: DataFrame, snapshot_date: str, batch_ts: str) -> DataFrame:
+    """Attach DMS-CDC-style header columns so the change log mirrors a real
+    log-based CDC feed (and Silver collapses on `cdc_seq` exactly as it would
+    against DMS `AR_H_CHANGE_SEQ`).
+
+    | our column      | mimics DMS       | meaning here                          |
+    |-----------------|------------------|---------------------------------------|
+    | Op              | AR_H_OPERATION   | I / U / D                             |
+    | cdc_seq         | AR_H_CHANGE_SEQ  | 35-char sortable "LSN": batch epoch + |
+    |                 |                  | monotonic id. Batch prefix is the     |
+    |                 |                  | only real ordering signal we have.    |
+    | cdc_commit_ts   | AR_H_COMMIT_TS   | batch time (proxy — no true commit    |
+    |                 |                  | time exists in snapshot-diff)         |
+    | cdc_snapshot_dt | —                | source snapshot partition             |
+    | cdc_processed_at| —                | when this job ran                     |
+    """
+    commit = F.to_timestamp(F.lit(batch_ts))
+    # 15-digit batch epoch (dominant sort key) ++ 20-digit unique id = 35 chars.
+    cdc_seq = F.concat(
+        F.lpad(F.unix_timestamp(commit).cast("string"), 15, "0"),
+        F.lpad(F.monotonically_increasing_id().cast("string"), 20, "0"),
+    )
+    return (
+        df.withColumn("cdc_seq", cdc_seq)
+        .withColumn("cdc_commit_ts", commit)
+        .withColumn("cdc_snapshot_dt", F.lit(snapshot_date))
+        .withColumn("cdc_processed_at", F.current_timestamp())
     )
 
 
-def _keyed_diff(cur_df, prev_df, keys, src_cols, snapshot_date) -> DataFrame:
+def _keyed_diff(cur_df, prev_df, keys, src_cols) -> DataFrame:
     """I/U/D via full-outer join on a unique natural key + row hash."""
     cur = _prep(cur_df, src_cols, keys, "cur")
     prev = _prep(prev_df, src_cols, keys, "prev")
@@ -98,16 +122,15 @@ def _keyed_diff(cur_df, prev_df, keys, src_cols, snapshot_date) -> DataFrame:
     # Deletes emit the last-known (previous) row; inserts/updates emit current.
     payload = F.when(F.col("cur_hash").isNull(), F.col("prev_row")).otherwise(F.col("cur_row"))
 
-    changes = (
+    return (
         joined.withColumn("Op", op)
         .filter(F.col("Op") != F.lit("N"))
         .withColumn("_payload", payload)
         .select("_payload.*", "Op")
     )
-    return _add_audit(changes, snapshot_date)
 
 
-def _multiset_diff(cur_df, prev_df, src_cols, snapshot_date) -> DataFrame:
+def _multiset_diff(cur_df, prev_df, src_cols) -> DataFrame:
     """I/D via count comparison of full rows, for tables with no unique key.
 
     A row present `n` times now and `m` times before yields `n-m` net inserts
@@ -127,8 +150,7 @@ def _multiset_diff(cur_df, prev_df, src_cols, snapshot_date) -> DataFrame:
         .withColumn("Op", F.when(F.col("delta") > 0, F.lit("I")).otherwise(F.lit("D")))
         .withColumn("_copies", F.explode(F.sequence(F.lit(1), F.abs(F.col("delta")))))
     )
-    changes = joined.select(*src_cols, "Op")
-    return _add_audit(changes, snapshot_date)
+    return joined.select(*src_cols, "Op")
 
 
 def compute_cdc(
@@ -136,13 +158,15 @@ def compute_cdc(
     prev_df: Optional[DataFrame],
     spec: TableSpec,
     snapshot_date: str,
+    batch_ts: Optional[str] = None,
     meta_cols: List[str] = DMS_META_COLS,
 ) -> DataFrame:
     """Return the I/U/D change log between two snapshots of one table.
 
     `prev_df=None` means baseline (first snapshot) -> everything is an insert.
     Keyed tables (spec.keys set) use a join-based diff; keyless tables
-    (spec.keys is None) use a count-based multiset diff.
+    (spec.keys is None) use a count-based multiset diff. Output carries
+    DMS-CDC-style header columns (see add_cdc_headers).
     """
     cur_df = normalize_columns(cur_df)
     if prev_df is not None:
@@ -152,12 +176,13 @@ def compute_cdc(
 
     if prev_df is None:
         # Baseline: emit every current row as an insert (duplicates preserved).
-        baseline = cur_df.select(*src_cols).withColumn("Op", F.lit("I"))
-        return _add_audit(baseline, snapshot_date)
+        changes = cur_df.select(*src_cols).withColumn("Op", F.lit("I"))
+    elif spec.keys:
+        changes = _keyed_diff(cur_df, prev_df, spec.keys, src_cols)
+    else:
+        changes = _multiset_diff(cur_df, prev_df, src_cols)
 
-    if spec.keys:
-        return _keyed_diff(cur_df, prev_df, spec.keys, src_cols, snapshot_date)
-    return _multiset_diff(cur_df, prev_df, src_cols, snapshot_date)
+    return add_cdc_headers(changes, snapshot_date, batch_ts or snapshot_date)
 
 
 # ---------------------------------------------------------------------------

@@ -23,9 +23,11 @@ single `sha2` **row hash** over the source columns to detect change:
 | key in both, hash equal | — | dropped (unchanged) |
 
 The **first** snapshot (no prior) is emitted entirely as `I`. Output carries the
-source columns + `Op` + `cdc_snapshot_dt` + `cdc_processed_at` — the same shape
-DMS CDC would have produced, so downstream (silver, metrics) is agnostic to how
-the change log was generated.
+source columns plus **DMS-CDC-style header columns** — `Op`, `cdc_seq` (an
+LSN mimic), `cdc_commit_ts`, `cdc_snapshot_dt`, `cdc_processed_at` — so Silver
+collapses on `cdc_seq` exactly as it would against a real DMS/MS-CDC feed.
+See **[../../docs/cdc_design.md](../../docs/cdc_design.md)** for the log-based
+mechanism, the LSN mimic, and the expected-vs-actual fidelity contract.
 
 DMS metadata columns (`Op`, `ingested_at`) on the snapshots are **excluded** from
 the hash and re-derived here.
