@@ -12,7 +12,10 @@ from typing import List, Optional
 @dataclass(frozen=True)
 class TableSpec:
     name: str
-    keys: List[str]           # natural/composite key used to align rows across snapshots
+    # Natural/composite key used to align rows across snapshots.
+    # None => the table has no unique identity (a multiset); the diff falls back
+    # to a count-based comparison of full rows instead of a keyed join.
+    keys: Optional[List[str]]
     schema: str = "gpb"
 
     def snapshot_relpath(self, snapshot_date: str) -> str:
@@ -34,12 +37,14 @@ DMS_META_COLS = ["op", "ingested_at"]
 
 
 # ---------------------------------------------------------------------------
-# Key choices (documented assumptions):
-#   order_items         : one row per item within an order -> (order_id, lineitem_id)
-#   order_item_options  : one row per option on a line item -> add the option
-#                         identity so a changed price/qty is detected as an UPDATE
-#                         rather than delete+insert.
-#   date_dim            : static calendar dimension keyed by the date.
+# Key choices (verified against the 2026-07-16 snapshot):
+#   order_items         : (order_id, lineitem_id) -> unique (203,519 rows). Keyed diff.
+#   date_dim            : date_key -> unique (365 rows). Keyed diff.
+#   order_item_options  : NO unique key. 2,299 rows are fully-identical duplicates
+#                         (same order/lineitem/group/name/price/qty), so it is a
+#                         multiset. keys=None -> count-based diff preserves the
+#                         exact multiplicity (which matters for revenue = sum of
+#                         option_price * option_quantity across rows).
 # ---------------------------------------------------------------------------
 TABLES = {
     "order_items": TableSpec(
@@ -48,7 +53,7 @@ TABLES = {
     ),
     "order_item_options": TableSpec(
         name="order_item_options",
-        keys=["order_id", "lineitem_id", "option_group_name", "option_name"],
+        keys=None,  # multiset — no unique identity
     ),
     "date_dim": TableSpec(
         name="date_dim",

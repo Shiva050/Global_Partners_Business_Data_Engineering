@@ -30,16 +30,21 @@ the change log was generated.
 DMS metadata columns (`Op`, `ingested_at`) on the snapshots are **excluded** from
 the hash and re-derived here.
 
-## Keys (see [config.py](config.py))
-| Table | Natural key |
-|---|---|
-| `order_items` | `order_id`, `lineitem_id` |
-| `order_item_options` | `order_id`, `lineitem_id`, `option_group_name`, `option_name` |
-| `date_dim` | `date_key` |
+## Keys (verified against the 2026-07-16 snapshot — see [config.py](config.py))
+| Table | Strategy | Key |
+|---|---|---|
+| `order_items` | keyed diff (I/U/D) | `order_id`, `lineitem_id` — unique (203,519 rows) |
+| `date_dim` | keyed diff (I/U/D) | `date_key` — unique (365 rows) |
+| `order_item_options` | **multiset diff (I/D)** | none — see below |
 
-> Assumption: these keys are unique within a snapshot. If a snapshot contains
-> true duplicate keys the diff over-counts — the job should be extended with a
-> pre-dedup / DQ check when that risk is real.
+### Why `order_item_options` is a multiset
+It has **no unique key**: 2,299 rows are fully-identical duplicates (same
+order/lineitem/group/name/price/quantity). A keyed join would explode on those.
+Instead, `keys=None` triggers a **count-based diff** — group by the full row,
+compare counts between snapshots, and emit the net `I`/`D` with exact
+multiplicity preserved (multiplicity matters: revenue sums `option_price *
+option_quantity` across rows). There is no `U` for a keyless row — an in-place
+change is a delete of the old row + insert of the new.
 
 ## Run
 

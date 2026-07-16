@@ -95,3 +95,43 @@ def test_null_change_is_detected_as_update(spark):
     out = _by_key(compute_cdc(cur, prev, SPEC, "2026-07-16"))
     assert out[("o1", "l1")]["Op"] == "U"
     assert out[("o1", "l1")]["item_price"] is None
+
+
+# --- multiset (keyless) diff, for order_item_options ---------------------------
+OPT_SPEC = TableSpec(name="order_item_options", keys=None)
+OPT_COLS = ["order_id", "lineitem_id", "option_name", "option_price", "ingested_at", "op"]
+
+
+def _opt(spark, rows):
+    data = [(o, li, nm, pr, "2026-07-16T00:00:00", "I") for (o, li, nm, pr) in rows]
+    return spark.createDataFrame(data, OPT_COLS)
+
+
+def test_multiset_baseline_preserves_duplicates(spark):
+    # Two fully-identical rows must both survive as inserts (multiplicity matters).
+    cur = _opt(spark, [("o1", "l1", "Cilantro", 0.0), ("o1", "l1", "Cilantro", 0.0)])
+    out = compute_cdc(cur, None, OPT_SPEC, "2026-07-16").collect()
+    assert len(out) == 2
+    assert all(r["Op"] == "I" for r in out)
+
+
+def test_multiset_diff_net_insert_and_delete(spark):
+    prev = _opt(spark, [
+        ("o1", "l1", "Cilantro", 0.0),   # count 2 -> 3  => 1 net insert
+        ("o1", "l1", "Cilantro", 0.0),
+        ("o2", "l1", "Onion", 0.5),      # count 2 -> 1  => 1 net delete
+        ("o2", "l1", "Onion", 0.5),
+    ])
+    cur = _opt(spark, [
+        ("o1", "l1", "Cilantro", 0.0),
+        ("o1", "l1", "Cilantro", 0.0),
+        ("o1", "l1", "Cilantro", 0.0),
+        ("o2", "l1", "Onion", 0.5),
+    ])
+    out = compute_cdc(cur, prev, OPT_SPEC, "2026-07-16").collect()
+    ops = sorted(r["Op"] for r in out)
+    assert ops == ["D", "I"]            # exactly one insert, one delete
+    ins = [r for r in out if r["Op"] == "I"][0]
+    assert ins["option_name"] == "Cilantro"
+    dele = [r for r in out if r["Op"] == "D"][0]
+    assert dele["option_name"] == "Onion"

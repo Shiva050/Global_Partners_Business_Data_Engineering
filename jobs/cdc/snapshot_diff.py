@@ -77,6 +77,60 @@ def _prep(df: DataFrame, src_cols: List[str], keys: List[str], side: str) -> Dat
     )
 
 
+def _add_audit(df: DataFrame, snapshot_date: str) -> DataFrame:
+    return df.withColumn("cdc_snapshot_dt", F.lit(snapshot_date)).withColumn(
+        "cdc_processed_at", F.current_timestamp()
+    )
+
+
+def _keyed_diff(cur_df, prev_df, keys, src_cols, snapshot_date) -> DataFrame:
+    """I/U/D via full-outer join on a unique natural key + row hash."""
+    cur = _prep(cur_df, src_cols, keys, "cur")
+    prev = _prep(prev_df, src_cols, keys, "prev")
+    joined = cur.join(prev, on=keys, how="full_outer")
+
+    op = (
+        F.when(F.col("prev_hash").isNull(), F.lit("I"))
+        .when(F.col("cur_hash").isNull(), F.lit("D"))
+        .when(F.col("cur_hash") != F.col("prev_hash"), F.lit("U"))
+        .otherwise(F.lit("N"))
+    )
+    # Deletes emit the last-known (previous) row; inserts/updates emit current.
+    payload = F.when(F.col("cur_hash").isNull(), F.col("prev_row")).otherwise(F.col("cur_row"))
+
+    changes = (
+        joined.withColumn("Op", op)
+        .filter(F.col("Op") != F.lit("N"))
+        .withColumn("_payload", payload)
+        .select("_payload.*", "Op")
+    )
+    return _add_audit(changes, snapshot_date)
+
+
+def _multiset_diff(cur_df, prev_df, src_cols, snapshot_date) -> DataFrame:
+    """I/D via count comparison of full rows, for tables with no unique key.
+
+    A row present `n` times now and `m` times before yields `n-m` net inserts
+    (Op=I) when positive, or `m-n` net deletes (Op=D) when negative. Exact
+    multiplicity is preserved by exploding the net delta into that many rows.
+    There is no U — an in-place change of a keyless row is a delete + insert.
+    """
+    cc = cur_df.groupBy(*src_cols).count().withColumnRenamed("count", "cnt_cur")
+    pc = prev_df.groupBy(*src_cols).count().withColumnRenamed("count", "cnt_prev")
+
+    joined = (
+        cc.join(pc, on=src_cols, how="full_outer")
+        .withColumn("cnt_cur", F.coalesce("cnt_cur", F.lit(0)))
+        .withColumn("cnt_prev", F.coalesce("cnt_prev", F.lit(0)))
+        .withColumn("delta", F.col("cnt_cur") - F.col("cnt_prev"))
+        .filter(F.col("delta") != 0)
+        .withColumn("Op", F.when(F.col("delta") > 0, F.lit("I")).otherwise(F.lit("D")))
+        .withColumn("_copies", F.explode(F.sequence(F.lit(1), F.abs(F.col("delta")))))
+    )
+    changes = joined.select(*src_cols, "Op")
+    return _add_audit(changes, snapshot_date)
+
+
 def compute_cdc(
     cur_df: DataFrame,
     prev_df: Optional[DataFrame],
@@ -87,44 +141,23 @@ def compute_cdc(
     """Return the I/U/D change log between two snapshots of one table.
 
     `prev_df=None` means baseline (first snapshot) -> everything is an insert.
+    Keyed tables (spec.keys set) use a join-based diff; keyless tables
+    (spec.keys is None) use a count-based multiset diff.
     """
     cur_df = normalize_columns(cur_df)
     if prev_df is not None:
         prev_df = normalize_columns(prev_df)
 
     src_cols = source_columns(cur_df, meta_cols)
-    keys = spec.keys
 
     if prev_df is None:
-        changes = (
-            cur_df.select(F.struct(*[F.col(c) for c in src_cols]).alias("_payload"))
-            .withColumn("Op", F.lit("I"))
-        )
-    else:
-        cur = _prep(cur_df, src_cols, keys, "cur")
-        prev = _prep(prev_df, src_cols, keys, "prev")
-        joined = cur.join(prev, on=keys, how="full_outer")
+        # Baseline: emit every current row as an insert (duplicates preserved).
+        baseline = cur_df.select(*src_cols).withColumn("Op", F.lit("I"))
+        return _add_audit(baseline, snapshot_date)
 
-        op = (
-            F.when(F.col("prev_hash").isNull(), F.lit("I"))
-            .when(F.col("cur_hash").isNull(), F.lit("D"))
-            .when(F.col("cur_hash") != F.col("prev_hash"), F.lit("U"))
-            .otherwise(F.lit("N"))
-        )
-        # Deletes emit the last-known (previous) row; inserts/updates emit current.
-        payload = F.when(F.col("cur_hash").isNull(), F.col("prev_row")).otherwise(F.col("cur_row"))
-
-        changes = (
-            joined.withColumn("Op", op)
-            .filter(F.col("Op") != F.lit("N"))
-            .withColumn("_payload", payload)
-        )
-
-    return (
-        changes.select("_payload.*", "Op")
-        .withColumn("cdc_snapshot_dt", F.lit(snapshot_date))
-        .withColumn("cdc_processed_at", F.current_timestamp())
-    )
+    if spec.keys:
+        return _keyed_diff(cur_df, prev_df, spec.keys, src_cols, snapshot_date)
+    return _multiset_diff(cur_df, prev_df, src_cols, snapshot_date)
 
 
 # ---------------------------------------------------------------------------
