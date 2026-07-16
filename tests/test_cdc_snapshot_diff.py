@@ -6,8 +6,8 @@ and unchanged handling, plus the delete-emits-last-known-row behaviour.
 import pytest
 from pyspark.sql import SparkSession
 
-from jobs.cdc.config import TableSpec
-from jobs.cdc.snapshot_diff import compute_cdc, source_columns
+from jobs.cdc_config import TableSpec
+from jobs.cdc_snapshot_diff import compute_cdc, source_columns
 
 SPEC = TableSpec(name="order_items", keys=["order_id", "lineitem_id"])
 META = ["op", "ingested_at"]
