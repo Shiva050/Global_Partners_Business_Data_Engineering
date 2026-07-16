@@ -1,0 +1,25 @@
+{
+  "rules": [
+    {
+      "rule-type": "selection",
+      "rule-id": "1",
+      "rule-name": "select-order-items",
+      "object-locator": { "schema-name": "dbo", "table-name": "order_items" },
+      "rule-action": "include"
+    },
+    {
+      "rule-type": "selection",
+      "rule-id": "2",
+      "rule-name": "select-order-item-options",
+      "object-locator": { "schema-name": "dbo", "table-name": "order_item_options" },
+      "rule-action": "include"
+    },
+    {
+      "rule-type": "selection",
+      "rule-id": "3",
+      "rule-name": "select-date-dim",
+      "object-locator": { "schema-name": "dbo", "table-name": "date_dim" },
+      "rule-action": "include"
+    }
+  ]
+}
