@@ -21,9 +21,9 @@ from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as F
 
 try:
-    from jobs.cdc_config import TABLES, CDC_HEADER_COLS, TableSpec
+    from jobs.cdc_config import TABLES, CDC_TABLES, CDC_HEADER_COLS, TableSpec
 except ModuleNotFoundError:  # spark-submit ships files flat
-    from cdc_config import TABLES, CDC_HEADER_COLS, TableSpec  # type: ignore
+    from cdc_config import TABLES, CDC_TABLES, CDC_HEADER_COLS, TableSpec  # type: ignore
 
 # Hive-style partition column Spark infers from the cdc/<table>/dt=<date>/ layout.
 PARTITION_COLS = ["dt"]
@@ -84,11 +84,12 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     spark = SparkSession.builder.appName("gpb-silver-current-state").getOrCreate()
-    names = args.tables.split(",") if args.tables else list(TABLES)
+    names = args.tables.split(",") if args.tables else list(CDC_TABLES)
     for name in names:
         spec = TABLES.get(name.strip())
-        if spec:
-            run_table(spark, args.bronze, spec)
+        if spec is None or spec.static:
+            continue
+        run_table(spark, args.bronze, spec)
     spark.stop()
 
 

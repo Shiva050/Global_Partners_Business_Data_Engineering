@@ -33,9 +33,9 @@ from pyspark.sql import functions as F
 
 # Support both `python -m jobs.cdc_snapshot_diff` and `spark-submit cdc_snapshot_diff.py`
 try:
-    from jobs.cdc_config import TABLES, DMS_META_COLS, TableSpec
+    from jobs.cdc_config import TABLES, CDC_TABLES, DMS_META_COLS, TableSpec
 except ModuleNotFoundError:  # spark-submit ships the file without the package root
-    from cdc_config import TABLES, DMS_META_COLS, TableSpec  # type: ignore
+    from cdc_config import TABLES, CDC_TABLES, DMS_META_COLS, TableSpec  # type: ignore
 
 NULL_SENTINEL = "__NULL__"  # sentinel so NULL != empty string when hashing
 
@@ -248,12 +248,15 @@ def main(argv: Optional[List[str]] = None):
     spark = SparkSession.builder.appName("gpb-cdc-snapshot-diff").getOrCreate()
 
     cur_date, prev_date = resolve_dates(spark, args.bronze, args.snapshot_date, args.prev_date)
-    names = args.tables.split(",") if args.tables else list(TABLES)
+    names = args.tables.split(",") if args.tables else list(CDC_TABLES)
 
     for name in names:
         spec = TABLES.get(name.strip())
         if spec is None:
             print(f"WARN: unknown table '{name}', skipping", file=sys.stderr)
+            continue
+        if spec.static:
+            print(f"SKIP: '{name}' is a static dimension (no CDC)", file=sys.stderr)
             continue
         run_table(spark, args.bronze, spec, cur_date, prev_date)
 

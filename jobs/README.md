@@ -6,9 +6,16 @@ falls back to a flat `import <module>` when the package root isn't on the path).
 
 | Module | Layer | Purpose |
 |---|---|---|
-| [`cdc_config.py`](cdc_config.py) | — | table specs (natural keys), DMS/CDC column contracts |
+| [`cdc_config.py`](cdc_config.py) | — | table specs (keys, static flag), DMS/CDC column contracts |
 | [`cdc_snapshot_diff.py`](cdc_snapshot_diff.py) | bronze→cdc | derive the I/U/D change log by diffing snapshots |
 | [`silver_current_state.py`](silver_current_state.py) | cdc→silver | collapse the change log to current-state tables |
+| [`silver_dim_date.py`](silver_dim_date.py) | bronze→silver | typed load of the static date dimension (no CDC) |
+
+**CDC vs static:** `order_items` and `order_item_options` flow through the full
+CDC pipeline (`CDC_TABLES`). `date_dim` is a static calendar dimension
+(`static=True`) — it skips CDC entirely and is loaded straight to silver with an
+enforced typed schema. Running CDC on a dimension that never changes is pure
+overhead.
 
 ---
 
@@ -34,8 +41,8 @@ mimic, and the expected-vs-actual fidelity contract.
 | Table | Strategy | Key |
 |---|---|---|
 | `order_items` | keyed diff (I/U/D) | `order_id`, `lineitem_id` — unique (203,519 rows) |
-| `date_dim` | keyed diff (I/U/D) | `date_key` — unique (365 rows) |
 | `order_item_options` | **multiset diff (I/D)** | none — 2,299 fully-identical dup rows, so it's a multiset; count-based diff preserves exact multiplicity |
+| `date_dim` | **static** (no CDC) | `date_key` — typed load only, `silver_dim_date.py` |
 
 ---
 
@@ -69,8 +76,9 @@ spark-submit jobs/cdc_snapshot_diff.py \
   --snapshot-date 2026-07-16 --prev-date 2026-07-15 \
   --tables order_items,order_item_options
 
-# Silver current state
+# Silver current state (CDC tables) + static date dimension
 spark-submit jobs/silver_current_state.py --bronze s3://dms-global-partne-brusiness-bronze
+spark-submit jobs/silver_dim_date.py      --bronze s3://dms-global-partne-brusiness-bronze
 ```
 
 On **AWS Glue**, use the module as the job script and pass `--bronze` (and other

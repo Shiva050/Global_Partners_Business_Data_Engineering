@@ -12,11 +12,14 @@ from typing import List, Optional
 @dataclass(frozen=True)
 class TableSpec:
     name: str
-    # Natural/composite key used to align rows across snapshots.
-    # None => the table has no unique identity (a multiset); the diff falls back
-    # to a count-based comparison of full rows instead of a keyed join.
+    # Natural/composite key used to align rows across snapshots (also the key
+    # validated for a static dimension). None => no unique identity (a multiset):
+    # the CDC diff falls back to a count-based comparison of full rows.
     keys: Optional[List[str]]
     schema: str = "gpb"
+    # Static conformed dimension: no meaningful change stream, so it skips CDC
+    # entirely and is loaded straight to silver with an enforced typed schema.
+    static: bool = False
 
     def snapshot_relpath(self, snapshot_date: str) -> str:
         """Path (relative to the bronze root) of this table's snapshot for a date."""
@@ -63,5 +66,11 @@ TABLES = {
     "date_dim": TableSpec(
         name="date_dim",
         keys=["date_key"],
+        static=True,  # static calendar dimension — no CDC, typed load only
     ),
 }
+
+# Tables that flow through the CDC pipeline (snapshot-diff -> collapse).
+CDC_TABLES = {n: s for n, s in TABLES.items() if not s.static}
+# Static dimensions loaded straight to silver (no CDC).
+STATIC_TABLES = {n: s for n, s in TABLES.items() if s.static}
