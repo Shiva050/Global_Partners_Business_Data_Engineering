@@ -27,7 +27,10 @@ def spark():
 
 
 def _snap(spark, rows):
-    return spark.createDataFrame(rows, SNAP_COLS)
+    # Explicit all-string schema (DMS delivers text before we cast) so a column
+    # that is NULL in every row still has a defined type.
+    schema = ", ".join(f"{c} string" for c in SNAP_COLS)
+    return spark.createDataFrame(rows, schema)
 
 
 def test_types_are_enforced(spark):
