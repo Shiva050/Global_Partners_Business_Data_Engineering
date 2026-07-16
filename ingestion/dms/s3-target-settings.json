@@ -8,8 +8,7 @@
   "DataFormat": "parquet",
   "ParquetVersion": "parquet-2-0",
   "ParquetTimestampInMillisecond": true,
-  "EncryptionMode": "SSE_KMS",
-  "ServerSideEncryptionKmsKeyId": "{{KMS_KEY_ARN}}",
+  "EncryptionMode": "SSE_S3",
 
   "IncludeOpForFullLoad": true,
   "CdcInsertsAndUpdates": false,

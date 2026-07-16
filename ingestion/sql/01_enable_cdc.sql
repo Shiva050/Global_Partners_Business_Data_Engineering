@@ -10,10 +10,10 @@
 
 -- 1) Enable CDC at the DATABASE level (RDS-specific stored proc).
 --    This creates the CDC capture/cleanup SQL Agent jobs.
-EXEC msdb.dbo.rds_cdc_enable_db 'GlobalPartners';
+EXEC msdb.dbo.rds_cdc_enable_db 'GlobalPartnerBusiness';
 GO
 
-USE [GlobalPartners];
+USE [GlobalPartnerBusiness];
 GO
 
 -- 2) Enable CDC per TABLE. DMS reads changes from the generated change tables.
@@ -21,21 +21,21 @@ GO
 --    @supports_net_changes = 0 -> capture every change (we want the full I/U/D log).
 
 EXEC sys.sp_cdc_enable_table
-     @source_schema        = N'dbo',
+     @source_schema        = N'gpb',
      @source_name          = N'order_items',
      @role_name            = NULL,
      @supports_net_changes = 0;
 GO
 
 EXEC sys.sp_cdc_enable_table
-     @source_schema        = N'dbo',
+     @source_schema        = N'gpb',
      @source_name          = N'order_item_options',
      @role_name            = NULL,
      @supports_net_changes = 0;
 GO
 
 EXEC sys.sp_cdc_enable_table
-     @source_schema        = N'dbo',
+     @source_schema        = N'gpb',
      @source_name          = N'date_dim',
      @role_name            = NULL,
      @supports_net_changes = 0;
@@ -52,7 +52,7 @@ GO
 -- 4) Verify CDC is on.
 SELECT name, is_cdc_enabled
 FROM   sys.databases
-WHERE  name = 'GlobalPartners';
+WHERE  name = 'GlobalPartnerBusiness';
 GO
 
 EXEC sys.sp_cdc_help_change_data_capture;   -- lists CDC-enabled tables

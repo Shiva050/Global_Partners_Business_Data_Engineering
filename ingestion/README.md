@@ -111,3 +111,30 @@ aws s3 ls s3://<bronze>/cdc/ --recursive | head
 ```
 Then INSERT/UPDATE/DELETE a test row in SQL Server and confirm a new CDC Parquet
 file appears under the date partition with the matching `Op`.
+
+---
+
+## Deployment notes / decisions (as built)
+
+Running on **DMS Serverless** (replication-config, not a classic instance).
+
+- **S3 Gateway VPC endpoint** (`com.amazonaws.us-east-1.s3`) was required.
+  DMS Serverless ENIs have no public IP, so in the default VPC they had no route
+  to S3 and the target test failed with a misleading *"Failed to connect to
+  database"*. Attaching a gateway endpoint to the main route table
+  (`rtb-...`) fixed it. **No NAT / internet gateway cost** — gateway endpoints
+  are free and keep S3 traffic on the AWS backbone.
+- **Encryption: SSE-S3 (AES256)**, matching the bucket's default encryption.
+  KMS was intentionally avoided — it added no security benefit here and only
+  introduced key-policy failure modes for the DMS role.
+- **Immutability** is enforced logically: DMS `TargetTablePrepMode = DO_NOTHING`
+  never rewrites bronze, so every run only appends. Object Lock (WORM) would
+  require recreating the bucket (can only be enabled at creation); deferred as
+  optional hardening. Recommended add-on: enable versioning + a bucket policy
+  denying `DeleteObject` to non-DMS principals.
+- **Source must be SQL Server Standard/Enterprise, NOT Express.** CDC (MS-CDC)
+  is edition-gated — Express cannot enable it (`sp_cdc_enable_db` fails), and
+  Express can't be a replication publisher either, so the MS-Replication path is
+  also unavailable. RDS does not allow changing edition in place, so the source
+  runs on a `sqlserver-se` instance (`db.m5.large`, the smallest class Standard
+  supports). DB name `GlobalPartnerBusiness`, schema `gpb`.
