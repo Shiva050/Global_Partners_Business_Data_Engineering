@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Local env / secrets
+.env
+*.local

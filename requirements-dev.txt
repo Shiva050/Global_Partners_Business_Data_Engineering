@@ -1,0 +1,4 @@
+# Local/CI dev dependencies for the PySpark jobs.
+# pyspark pinned to match AWS Glue 5.0 / EMR 7.x (Spark 3.5.x).
+pyspark==3.5.1
+pytest==8.2.2
