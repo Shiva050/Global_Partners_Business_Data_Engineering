@@ -100,8 +100,10 @@ def test_uppercase_source_columns_are_normalized(spark):
 
 def test_null_change_is_detected_as_update(spark):
     prev = _snap(spark, [("o1", "l1", 5.0)])
+    # Reuse prev's schema so the all-NULL item_price column has a defined type
+    # (Spark can't infer a type for a column that is NULL in every row).
     cur_data = [("o1", "l1", None, "2026-07-16T00:00:00", "I")]
-    cur = spark.createDataFrame(cur_data, COLS)
+    cur = spark.createDataFrame(cur_data, prev.schema)
     out = _by_key(compute_cdc(cur, prev, SPEC, "2026-07-16"))
     assert out[("o1", "l1")]["Op"] == "U"
     assert out[("o1", "l1")]["item_price"] is None
