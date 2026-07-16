@@ -1,28 +1,48 @@
-# Ingestion — SQL Server (RDS) → S3 Bronze (Full Load + CDC)
+# Ingestion — SQL Server (RDS) → S3 Bronze (Snapshot + PySpark-derived CDC)
 
-Layer 1 of the pipeline. AWS DMS replicates the 3 source tables from RDS SQL
-Server into an **immutable, append-only** S3 bronze layer as an I/U/D change log,
-partitioned by ingest date.
+Layer 1 of the pipeline. DMS **full-load** lands periodic full snapshots of the 3
+source tables into S3; a **PySpark snapshot-diff job** then derives an append-only
+I/U/D change log by comparing consecutive snapshots.
 
 ```
-RDS SQL Server ──(MS-CDC)──► DMS replication instance ──► S3 bronze (Parquet)
-   order_items                full-load-and-cdc task        Op(I/U/D) + ingested_at
-   order_item_options                                       date-partitioned folders
-   date_dim
+RDS SQL Server (Express) ──► DMS full-load ──► S3  snapshots/dt=<date>/gpb/<table>/   (Op=I + ingested_at)
+   order_items                                       │
+   order_item_options              PySpark snapshot-diff (full-outer join on PK + row hash)
+   date_dim                                          ▼
+                                              S3  cdc/<table>/dt=<date>/             (Op = I/U/D + ingested_at)
 ```
 
-## Already provisioned (no action)
-- ✅ RDS SQL Server with the 3 tables loaded
-- ✅ MS-CDC enabled on DB + tables — see [sql/01_enable_cdc.sql](sql/01_enable_cdc.sql) (reference)
-- ✅ S3 bronze bucket (versioning + SSE-KMS + object-lock)
+## Why not DMS CDC (the architecture pivot)
+The original design used DMS `full-load-and-cdc` (MS-CDC). **The source RDS runs
+SQL Server Express, which does not support CDC** (edition-gated; Express also can't
+be a replication publisher, ruling out MS-Replication too). Rather than pay for a
+Standard-edition instance (~$0.50/hr), we keep Express (free) and **derive** the
+I/U/D change log in PySpark by diffing snapshots — which also satisfies the
+"all logic in PySpark" constraint. Trade-off: batch-granular, not row-level
+real-time CDC. See [Deployment notes](#deployment-notes--decisions-as-built).
+
+## Provisioned (no action)
+- ✅ RDS SQL Server **Express** with the 3 tables (`gpb` schema), DB `GlobalPartnerBusiness`
+- ✅ S3 bronze bucket (SSE-S3 / AES256)
+- ✅ S3 gateway VPC endpoint (DMS Serverless → S3 network path)
 - ✅ DMS S3-target IAM role — policy reference: [iam/](iam/)
-- ✅ DMS replication instance + SQL Server source endpoint
+- ✅ DMS source (SQL Server) + target (S3) endpoints
+- ✅ DMS Serverless replication config `gpb-fullload-bronze` (type `full-load`)
 
-## To build (this doc) — via DMS Console
-1. Create the **S3 target endpoint** (paste settings JSON below)
-2. Create the **replication task** (paste table-mappings + task-settings)
-3. Test connections → start task → validate S3 output
+## Pipeline
+1. **Snapshot** — run `gpb-fullload-bronze` → writes to `snapshots/dt=<date>/gpb/<table>/`
+   (bump `BucketFolder` date on the S3 endpoint per run)
+2. **Diff** — PySpark job compares latest vs. prior snapshot → `cdc/<table>/dt=<date>/`
+3. Validate + reconcile counts (203,519 / 193,017)
 
+---
+
+---
+> ⚠️ **Legacy (superseded):** the console steps below documented the original
+> DMS `full-load-and-cdc` attempt. They remain as reference, but the live config
+> is now `full-load` only (see the pivot section above). Settings that don't
+> apply to full-load — `DatePartitionEnabled`, `CdcPath` — were removed from the
+> deployed S3 endpoint. This section will be replaced when the diff job lands.
 ---
 
 ## Step 1 — Create S3 target endpoint
