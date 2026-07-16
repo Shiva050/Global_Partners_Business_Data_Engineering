@@ -27,7 +27,10 @@ class TableSpec:
 # DMS full-load with IncludeOpForFullLoad + TimestampColumnName adds these two
 # columns to every snapshot Parquet. They are DMS metadata, NOT source data, so
 # they are excluded from the row comparison and re-derived by the diff.
-DMS_META_COLS = ["Op", "ingested_at"]
+# NOTE: the diff job lowercases all snapshot columns on read (source tables come
+# through with mixed casing — order_* are UPPERCASE, date_dim is lowercase), so
+# these are matched in lowercase.
+DMS_META_COLS = ["op", "ingested_at"]
 
 
 # ---------------------------------------------------------------------------

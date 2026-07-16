@@ -10,8 +10,10 @@ from jobs.cdc.config import TableSpec
 from jobs.cdc.snapshot_diff import compute_cdc, source_columns
 
 SPEC = TableSpec(name="order_items", keys=["order_id", "lineitem_id"])
-META = ["Op", "ingested_at"]
-COLS = ["order_id", "lineitem_id", "item_price", "ingested_at", "Op"]
+META = ["op", "ingested_at"]
+# DMS snapshot columns (lowercased on read by the job); "op" here is the DMS
+# source-side operation flag, dropped and re-derived by the diff.
+COLS = ["order_id", "lineitem_id", "item_price", "ingested_at", "op"]
 
 
 @pytest.fixture(scope="session")
@@ -71,6 +73,19 @@ def test_insert_update_delete_unchanged(spark):
     assert out[("o1", "l4")]["Op"] == "I"
     assert out[("o1", "l3")]["Op"] == "D"
     assert out[("o1", "l3")]["item_price"] == 9.0      # delete emits last-known value
+
+
+def test_uppercase_source_columns_are_normalized(spark):
+    # order_* snapshots arrive UPPERCASE; the job must lowercase them so the
+    # config's lowercase keys align and downstream schema is uniform.
+    up_cols = ["ORDER_ID", "LINEITEM_ID", "ITEM_PRICE", "ingested_at", "Op"]
+    prev = spark.createDataFrame([("o1", "l1", 5.0, "2026-07-15T00:00:00", "I")], up_cols)
+    cur = spark.createDataFrame([("o1", "l1", 7.0, "2026-07-16T00:00:00", "I")], up_cols)
+    out = compute_cdc(cur, prev, SPEC, "2026-07-16")
+    assert "order_id" in out.columns and "ORDER_ID" not in out.columns
+    assert "item_price" in out.columns
+    rows = out.collect()
+    assert len(rows) == 1 and rows[0]["Op"] == "U" and rows[0]["item_price"] == 7.0
 
 
 def test_null_change_is_detected_as_update(spark):

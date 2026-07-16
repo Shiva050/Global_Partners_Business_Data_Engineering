@@ -43,8 +43,18 @@ NULL_SENTINEL = "__NULL__"  # sentinel so NULL != empty string when hashing
 # ---------------------------------------------------------------------------
 # Pure transformation helpers (unit-tested without S3)
 # ---------------------------------------------------------------------------
+def normalize_columns(df: DataFrame) -> DataFrame:
+    """Lowercase every column name.
+
+    Source tables arrive with inconsistent casing (order_* UPPERCASE, date_dim
+    lowercase). Normalizing here keeps the derived change log — and everything
+    downstream — on a single, predictable lowercase schema.
+    """
+    return df.toDF(*[c.lower() for c in df.columns])
+
+
 def source_columns(df: DataFrame, meta_cols: List[str] = DMS_META_COLS) -> List[str]:
-    """Business columns only — DMS metadata (Op, ingested_at) removed."""
+    """Business columns only — DMS metadata (op, ingested_at) removed."""
     return [c for c in df.columns if c not in meta_cols]
 
 
@@ -78,6 +88,10 @@ def compute_cdc(
 
     `prev_df=None` means baseline (first snapshot) -> everything is an insert.
     """
+    cur_df = normalize_columns(cur_df)
+    if prev_df is not None:
+        prev_df = normalize_columns(prev_df)
+
     src_cols = source_columns(cur_df, meta_cols)
     keys = spec.keys
 
