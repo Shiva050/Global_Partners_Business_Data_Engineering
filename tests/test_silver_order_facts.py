@@ -88,6 +88,17 @@ def test_line_item_without_options(spark):
     assert r["is_discounted"] is False
 
 
+def test_outlier_flag(spark):
+    oi = [
+        ("oBig", "l1", "u1", "r1", "web", "USD", False, "2023-05-10 12:00:00", "Entree", "A", 5000.0, 500),
+        ("oNorm", "l1", "u2", "r1", "web", "USD", False, "2023-05-10 12:00:00", "Drink", "B", 3.0, 1),
+    ]
+    li = line_item_facts(_oi(spark, oi), _oo(spark, []))
+    of = {r["order_id"]: r for r in order_facts(li, outlier_threshold=10000.0).collect()}
+    assert of["oBig"]["order_revenue"] == 2_500_000.0 and of["oBig"]["is_outlier"] is True
+    assert of["oNorm"]["is_outlier"] is False
+
+
 def test_order_rollup_and_date(spark):
     oi = [
         ("o1", "l1", "u1", "r1", "web", "USD", True, "2023-05-10 12:00:00", "Entree", "A", 10.0, 1),

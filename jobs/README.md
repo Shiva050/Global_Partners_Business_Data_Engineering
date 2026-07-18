@@ -19,7 +19,7 @@ jobs/
 | [`common/config.py`](common/config.py) | shared | table specs (keys, static flag), DMS/CDC column contracts |
 | [`bronze/snapshot_diff.py`](bronze/snapshot_diff.py) | bronze→cdc | derive the I/U/D change log by diffing snapshots |
 | [`silver/current_state.py`](silver/current_state.py) | cdc→silver | collapse the change log to current-state tables |
-| [`silver/dim_date.py`](silver/dim_date.py) | bronze→silver | typed load of the static date dimension (no CDC) |
+| [`silver/dim_date.py`](silver/dim_date.py) | bronze→silver | generated full-range calendar + source holiday flags (no CDC) |
 | [`silver/order_facts.py`](silver/order_facts.py) | silver→silver | revenue-enriched line-item + order facts |
 | [`gold/customer_clv_daily.py`](gold/customer_clv_daily.py) | silver→gold | daily-evolving cumulative CLV per customer |
 | [`gold/customer_rfm.py`](gold/customer_rfm.py) | silver→gold | RFM scores + segments (VIP/New/Churn Risk) |

@@ -1,16 +1,12 @@
-"""Unit tests for the static date-dimension load (typing + dedup + casing)."""
+"""Unit tests for the generated conformed date dimension."""
 import datetime
 
 import pytest
 from pyspark.sql import SparkSession
 
-from jobs.silver.dim_date import build_dim_date
+from jobs.silver.dim_date import date_attributes, build_date_dim, typed_source_holidays
 
-# Snapshot columns as they arrive from DMS: DMS metadata (Op/ingested_at) +
-# source columns, with date_key as a string and booleans as strings, to prove
-# the cast enforces the target types.
-SNAP_COLS = ["Op", "ingested_at", "date_key", "year", "month", "week",
-             "day_of_week", "is_weekend", "is_holiday", "holiday_name"]
+D = datetime.date
 
 
 @pytest.fixture(scope="session")
@@ -26,40 +22,45 @@ def spark():
     s.stop()
 
 
-def _snap(spark, rows):
-    # Explicit all-string schema (DMS delivers text before we cast) so a column
-    # that is NULL in every row still has a defined type.
-    schema = ", ".join(f"{c} string" for c in SNAP_COLS)
-    return spark.createDataFrame(rows, schema)
+def _cal(spark, dates):
+    return spark.createDataFrame([(d,) for d in dates], "date_key date")
 
 
-def test_types_are_enforced(spark):
-    rows = [("I", "2026-07-16", "2023-01-01", "2023", "1", "52",
-             "Sunday", "true", "true", "New Year's Day")]
-    out = build_dim_date(_snap(spark, rows))
-    t = dict(out.dtypes)
-    assert t["date_key"] == "date"
-    assert t["year"] == "int" and t["month"] == "int" and t["week"] == "int"
-    assert t["is_weekend"] == "boolean" and t["is_holiday"] == "boolean"
-    assert t["day_of_week"] == "string" and t["holiday_name"] == "string"
+def test_date_attributes(spark):
+    out = {r["date_key"]: r for r in date_attributes(_cal(spark, [D(2023, 1, 1), D(2023, 1, 2)])).collect()}
+    sun = out[D(2023, 1, 1)]      # Sunday
+    assert sun["year"] == 2023 and sun["month"] == 1
+    assert sun["day_of_week"] == "Sunday" and sun["is_weekend"] is True
+    mon = out[D(2023, 1, 2)]      # Monday
+    assert mon["day_of_week"] == "Monday" and mon["is_weekend"] is False
 
+
+def test_build_date_dim_enriches_holidays(spark):
+    cal = _cal(spark, [D(2023, 1, 1), D(2023, 7, 4), D(2024, 3, 1)])
+    holidays = spark.createDataFrame(
+        [(D(2023, 7, 4), True, "Independence Day")],
+        "date_key date, is_holiday boolean, holiday_name string",
+    )
+    out = {r["date_key"]: r for r in build_date_dim(cal, holidays).collect()}
+
+    assert out[D(2023, 7, 4)]["is_holiday"] is True
+    assert out[D(2023, 7, 4)]["holiday_name"] == "Independence Day"
+    # dates with no source holiday default to False (covers the non-2023 range too)
+    assert out[D(2023, 1, 1)]["is_holiday"] is False
+    assert out[D(2024, 3, 1)]["is_holiday"] is False
+    assert out[D(2024, 3, 1)]["holiday_name"] is None
+
+
+def test_typed_source_holidays_drops_metadata_and_types(spark):
+    # Source snapshot arrives as text with DMS metadata; keep only typed holidays.
+    cols = ("Op string, ingested_at string, date_key string, year string, month string, "
+            "week string, day_of_week string, is_weekend string, is_holiday string, holiday_name string")
+    snap = spark.createDataFrame([
+        ("I", "2026-07-16", "2023-01-01", "2023", "1", "52", "Sunday", "true", "true", "New Year"),
+        ("I", "2026-07-16", "2023-01-01", "2023", "1", "52", "Sunday", "true", "true", "New Year"),  # dup
+    ], cols)
+    out = typed_source_holidays(snap)
+    assert set(out.columns) == {"date_key", "is_holiday", "holiday_name"}
+    assert out.count() == 1                      # deduped on date_key
     r = out.collect()[0]
-    assert r["date_key"] == datetime.date(2023, 1, 1)
-    assert r["year"] == 2023 and r["month"] == 1
-    assert r["is_weekend"] is True
-
-
-def test_dms_metadata_dropped(spark):
-    rows = [("I", "2026-07-16", "2023-01-01", "2023", "1", "52",
-             "Sunday", "false", "false", None)]
-    out = build_dim_date(_snap(spark, rows))
-    assert "op" not in out.columns and "ingested_at" not in out.columns and "Op" not in out.columns
-
-
-def test_deduplicates_on_date_key(spark):
-    rows = [
-        ("I", "2026-07-16", "2023-01-01", "2023", "1", "52", "Sunday", "true", "true", "NYD"),
-        ("I", "2026-07-16", "2023-01-01", "2023", "1", "52", "Sunday", "true", "true", "NYD"),
-    ]
-    out = build_dim_date(_snap(spark, rows))
-    assert out.count() == 1
+    assert r["date_key"] == D(2023, 1, 1) and r["is_holiday"] is True

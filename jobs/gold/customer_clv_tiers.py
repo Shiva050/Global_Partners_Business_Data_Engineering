@@ -48,7 +48,7 @@ def compute_clv_tiers(orders: DataFrame) -> DataFrame:
 
 
 def run(spark, bronze):
-    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select("user_id", "order_revenue")
+    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select("user_id", "order_revenue").filter(F.col("user_id").isNotNull())
     out = compute_clv_tiers(orders)
     path = f"{bronze}/{GOLD_RELPATH}"
     out.write.mode("overwrite").parquet(path)

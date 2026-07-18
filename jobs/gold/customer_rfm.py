@@ -98,7 +98,7 @@ def compute_rfm(orders: DataFrame, as_of: str, lookback_months: int = 12) -> Dat
 def run(spark, bronze, as_of, lookback_months):
     orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
         "user_id", "order_revenue", "order_date"
-    )
+    ).filter(F.col("user_id").isNotNull())  # exclude anonymous/guest orders
     if as_of is None:
         as_of = str(orders.agg(F.max("order_date")).first()[0])
 

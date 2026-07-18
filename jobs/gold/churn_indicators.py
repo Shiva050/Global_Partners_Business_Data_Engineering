@@ -107,7 +107,7 @@ def compute_churn_indicators(
 def run(spark, bronze, as_of, at_risk_days, dormant_days, period_days):
     orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
         "user_id", "order_revenue", "order_date"
-    )
+    ).filter(F.col("user_id").isNotNull())  # exclude anonymous/guest orders
     if as_of is None:
         as_of = str(orders.agg(F.max("order_date")).first()[0])
     out = compute_churn_indicators(orders, as_of, at_risk_days, dormant_days, period_days)

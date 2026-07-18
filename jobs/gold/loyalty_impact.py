@@ -55,7 +55,7 @@ def compute_loyalty_impact(orders: DataFrame) -> DataFrame:
 def run(spark, bronze):
     orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
         "user_id", "order_revenue", "is_loyalty"
-    )
+    ).filter(F.col("user_id").isNotNull())  # exclude anonymous/guest orders
     out = compute_loyalty_impact(orders)
     path = f"{bronze}/{GOLD_RELPATH}"
     out.write.mode("overwrite").parquet(path)

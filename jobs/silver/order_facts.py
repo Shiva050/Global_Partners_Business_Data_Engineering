@@ -58,8 +58,14 @@ def line_item_facts(order_items: DataFrame, options: DataFrame) -> DataFrame:
     )
 
 
-def order_facts(line_items: DataFrame) -> DataFrame:
-    """Roll line items up to one row per order_id."""
+def order_facts(line_items: DataFrame, outlier_threshold: float = 10000.0) -> DataFrame:
+    """Roll line items up to one row per order_id.
+
+    Flags (does not drop) orders whose revenue exceeds `outlier_threshold` — the
+    raw data contains a handful of absurd orders ($2.5M, one $5,000 item x 500)
+    that would otherwise dominate CLV/tiers/location. Dashboards can filter
+    is_outlier=false for a clean view; all rows are retained and auditable.
+    """
     return (
         line_items.groupBy("order_id")
         .agg(
@@ -78,6 +84,7 @@ def order_facts(line_items: DataFrame) -> DataFrame:
         .withColumn("order_ts", F.to_timestamp("creation_time_utc"))
         .withColumn("order_date", F.to_date("creation_time_utc"))
         .withColumn("is_discounted", F.col("order_discount_amount") < 0)
+        .withColumn("is_outlier", F.col("order_revenue") > F.lit(outlier_threshold))
     )
 
 
