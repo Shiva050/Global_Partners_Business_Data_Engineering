@@ -1,0 +1,95 @@
+{
+  "Comment": "Global Partners medallion pipeline: bronze -> silver -> gold on AWS Glue. Each state runs a Glue job synchronously (startJobRun.sync) and waits for it to finish. Job args (--bronze, --extra-py-files) come from each Glue job's DefaultArguments.",
+  "StartAt": "BronzeSnapshotDiff",
+  "States": {
+    "BronzeSnapshotDiff": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": { "JobName": "gpb-bronze-snapshot-diff" },
+      "Retry": [
+        { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 }
+      ],
+      "Next": "SilverCurrentAndDim"
+    },
+
+    "SilverCurrentAndDim": {
+      "Type": "Parallel",
+      "Comment": "current-state (CDC collapse) and the static date dimension are independent",
+      "Branches": [
+        {
+          "StartAt": "SilverCurrentState",
+          "States": {
+            "SilverCurrentState": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": { "JobName": "gpb-silver-current-state" },
+              "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ],
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "SilverDimDate",
+          "States": {
+            "SilverDimDate": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": { "JobName": "gpb-silver-dim-date" },
+              "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ],
+              "End": true
+            }
+          }
+        }
+      ],
+      "Catch": [ { "ErrorEquals": ["States.ALL"], "Next": "PipelineFailed" } ],
+      "Next": "SilverOrderFacts"
+    },
+
+    "SilverOrderFacts": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": { "JobName": "gpb-silver-order-facts" },
+      "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ],
+      "Catch": [ { "ErrorEquals": ["States.ALL"], "Next": "PipelineFailed" } ],
+      "Next": "GoldMetrics"
+    },
+
+    "GoldMetrics": {
+      "Type": "Parallel",
+      "Comment": "All gold metrics read silver facts and run in parallel; CLV trends depends on CLV daily so they are chained within one branch.",
+      "Branches": [
+        {
+          "StartAt": "GoldClvDaily",
+          "States": {
+            "GoldClvDaily": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": { "JobName": "gpb-gold-clv-daily" },
+              "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ],
+              "Next": "GoldClvTrends"
+            },
+            "GoldClvTrends": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": { "JobName": "gpb-gold-clv-trends" },
+              "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ],
+              "End": true
+            }
+          }
+        },
+        { "StartAt": "GoldRfm", "States": { "GoldRfm": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-rfm" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } },
+        { "StartAt": "GoldClvTiers", "States": { "GoldClvTiers": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-clv-tiers" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } },
+        { "StartAt": "GoldChurn", "States": { "GoldChurn": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-churn" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } },
+        { "StartAt": "GoldSalesTrends", "States": { "GoldSalesTrends": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-sales-trends" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } },
+        { "StartAt": "GoldLoyalty", "States": { "GoldLoyalty": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-loyalty" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } },
+        { "StartAt": "GoldLocation", "States": { "GoldLocation": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-location" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } },
+        { "StartAt": "GoldDiscount", "States": { "GoldDiscount": { "Type": "Task", "Resource": "arn:aws:states:::glue:startJobRun.sync", "Parameters": { "JobName": "gpb-gold-discount" }, "Retry": [ { "ErrorEquals": ["Glue.ConcurrentRunsExceededException", "Glue.InternalServiceException"], "IntervalSeconds": 30, "MaxAttempts": 3, "BackoffRate": 2.0 } ], "End": true } } }
+      ],
+      "Catch": [ { "ErrorEquals": ["States.ALL"], "Next": "PipelineFailed" } ],
+      "Next": "PipelineSucceeded"
+    },
+
+    "PipelineSucceeded": { "Type": "Succeed" },
+    "PipelineFailed": { "Type": "Fail", "Error": "PipelineFailed", "Cause": "A Glue job in the medallion pipeline failed. See the failed state's Glue run in the execution history." }
+  }
+}
