@@ -23,6 +23,7 @@ jobs/
 | [`silver/order_facts.py`](silver/order_facts.py) | silver→silver | revenue-enriched line-item + order facts |
 | [`gold/customer_clv_daily.py`](gold/customer_clv_daily.py) | silver→gold | daily-evolving cumulative CLV per customer |
 | [`gold/customer_rfm.py`](gold/customer_rfm.py) | silver→gold | RFM scores + segments (VIP/New/Churn Risk) |
+| [`gold/customer_clv_tiers.py`](gold/customer_clv_tiers.py) | silver→gold | CLV value tiers (High/Medium/Low = 20/60/20) |
 
 **CDC vs static:** `order_items` and `order_item_options` flow through the full
 CDC pipeline (`CDC_TABLES`). `date_dim` is a static calendar dimension
@@ -93,6 +94,9 @@ spark-submit jobs/gold/customer_clv_daily.py --bronze s3://dms-global-partne-bru
 # Gold: RFM segmentation (full recompute; optional lookback / as-of)
 spark-submit jobs/gold/customer_rfm.py --bronze s3://dms-global-partne-brusiness-bronze \
   --lookback-months 12
+
+# Gold: CLV value tiers (High/Medium/Low)
+spark-submit jobs/gold/customer_clv_tiers.py --bronze s3://dms-global-partne-brusiness-bronze
 ```
 
 On **AWS Glue**, use the module as the job script and pass `--bronze` (and other

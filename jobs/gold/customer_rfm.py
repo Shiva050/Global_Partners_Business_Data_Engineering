@@ -19,6 +19,12 @@ while Frequency/Monetary use the rolling window (the spec's "last N months").
 This is a point-in-time snapshot recomputed in full each run — no cumulative
 state, so (unlike CLV) it needs no incremental window.
 
+Semantics note: RFM is a single "as of latest" snapshot. `N months` is part of
+the scoring *definition*, not a dashboard filter — the dashboard's month filter
+does NOT recompute R/F/M (recency is only defined against one reference date,
+and quintiles are ranked across the whole population for one window). Period-
+specific activity ("orders in March") is the Sales Trends metric, not RFM.
+
 Reads  <bronze>/silver/facts/orders
 Writes <bronze>/gold/customer_rfm/
 
