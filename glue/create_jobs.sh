@@ -29,8 +29,9 @@ for entry in "${JOBS[@]}"; do
 
   echo "==> ${NAME}  (${SCRIPT})"
   if aws glue get-job --job-name "$NAME" >/dev/null 2>&1; then
-    aws glue update-job --job-name "$NAME" --job-update \
-      "Role=${GLUE_ROLE_ARN},GlueVersion=${GLUE_VERSION},WorkerType=${GLUE_WORKER_TYPE},NumberOfWorkers=${GLUE_NUM_WORKERS},Command=${COMMAND},DefaultArguments=${DEFAULT_ARGS},MaxRetries=0" >/dev/null
+    # JobUpdate must be JSON (the key=value shorthand can't hold nested Command/args JSON).
+    JOB_UPDATE="{\"Role\":\"${GLUE_ROLE_ARN}\",\"GlueVersion\":\"${GLUE_VERSION}\",\"WorkerType\":\"${GLUE_WORKER_TYPE}\",\"NumberOfWorkers\":${GLUE_NUM_WORKERS},\"MaxRetries\":0,\"Command\":${COMMAND},\"DefaultArguments\":${DEFAULT_ARGS}}"
+    aws glue update-job --job-name "$NAME" --job-update "$JOB_UPDATE" >/dev/null
   else
     aws glue create-job --name "$NAME" --role "${GLUE_ROLE_ARN}" \
       --glue-version "${GLUE_VERSION}" --worker-type "${GLUE_WORKER_TYPE}" \
