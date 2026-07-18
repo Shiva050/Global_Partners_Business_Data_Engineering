@@ -25,6 +25,10 @@ jobs/
 | [`gold/customer_rfm.py`](gold/customer_rfm.py) | silver→gold | RFM scores + segments (VIP/New/Churn Risk) |
 | [`gold/customer_clv_tiers.py`](gold/customer_clv_tiers.py) | silver→gold | CLV value tiers (High/Medium/Low = 20/60/20) |
 | [`gold/churn_indicators.py`](gold/churn_indicators.py) | silver→gold | activity profile: days-since-last, avg gap, spend trend, at-risk tags |
+| [`gold/sales_trends.py`](gold/sales_trends.py) | silver→gold | daily sales fact × location × category + calendar/holiday |
+| [`gold/loyalty_impact.py`](gold/loyalty_impact.py) | silver→gold | loyalty vs non: AOV, repeat rate, CLV |
+| [`gold/location_performance.py`](gold/location_performance.py) | silver→gold | revenue/AOV/orders per restaurant, ranked |
+| [`gold/discount_effectiveness.py`](gold/discount_effectiveness.py) | silver→gold | discounted vs full-price: gross vs net |
 
 **CDC vs static:** `order_items` and `order_item_options` flow through the full
 CDC pipeline (`CDC_TABLES`). `date_dim` is a static calendar dimension
@@ -102,6 +106,12 @@ spark-submit jobs/gold/customer_clv_tiers.py --bronze s3://dms-global-partne-bru
 # Gold: churn activity indicators
 spark-submit jobs/gold/churn_indicators.py --bronze s3://dms-global-partne-brusiness-bronze \
   --at-risk-days 45 --dormant-days 90
+
+# Gold: aggregate metrics
+spark-submit jobs/gold/sales_trends.py           --bronze s3://dms-global-partne-brusiness-bronze
+spark-submit jobs/gold/loyalty_impact.py         --bronze s3://dms-global-partne-brusiness-bronze
+spark-submit jobs/gold/location_performance.py   --bronze s3://dms-global-partne-brusiness-bronze
+spark-submit jobs/gold/discount_effectiveness.py --bronze s3://dms-global-partne-brusiness-bronze
 ```
 
 On **AWS Glue**, use the module as the job script and pass `--bronze` (and other
