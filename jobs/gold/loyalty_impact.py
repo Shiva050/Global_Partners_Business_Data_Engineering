@@ -53,7 +53,7 @@ def compute_loyalty_impact(orders: DataFrame) -> DataFrame:
 
 
 def run(spark, bronze):
-    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
+    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").filter(~F.col("is_outlier")).select(
         "user_id", "order_revenue", "is_loyalty"
     ).filter(F.col("user_id").isNotNull())  # exclude anonymous/guest orders
     out = compute_loyalty_impact(orders)

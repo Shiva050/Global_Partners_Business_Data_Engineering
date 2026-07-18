@@ -39,7 +39,7 @@ def compute_sales_daily(line_items: DataFrame, date_dim: DataFrame) -> DataFrame
 
 
 def run(spark, bronze):
-    li = spark.read.parquet(f"{bronze}/silver/facts/order_line_items")
+    li = spark.read.parquet(f"{bronze}/silver/facts/order_line_items").filter(~F.col("is_outlier"))
     dd = spark.read.parquet(f"{bronze}/silver/current/date_dim")
     out = compute_sales_daily(li, dd)
     path = f"{bronze}/{GOLD_RELPATH}"

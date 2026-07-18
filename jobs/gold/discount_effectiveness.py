@@ -50,7 +50,7 @@ def compute_discount_effectiveness(orders: DataFrame) -> DataFrame:
 
 
 def run(spark, bronze):
-    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
+    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").filter(~F.col("is_outlier")).select(
         "is_discounted", "order_gross_revenue", "order_revenue", "order_discount_amount"
     )
     out = compute_discount_effectiveness(orders)

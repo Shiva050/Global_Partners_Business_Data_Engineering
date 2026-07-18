@@ -141,7 +141,7 @@ def _month_floor(date_str: str) -> str:
 
 
 def run(spark, bronze, full, batch_min_order_date, as_of):
-    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
+    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").filter(~F.col("is_outlier")).select(
         "user_id", "order_revenue", "order_date"
     ).filter(F.col("user_id").isNotNull())  # exclude anonymous/guest orders
     date_dim = spark.read.parquet(f"{bronze}/silver/current/date_dim")

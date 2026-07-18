@@ -37,7 +37,7 @@ def compute_location_performance(orders: DataFrame) -> DataFrame:
 
 
 def run(spark, bronze):
-    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").select(
+    orders = spark.read.parquet(f"{bronze}/silver/facts/orders").filter(~F.col("is_outlier")).select(
         "restaurant_id", "user_id", "order_revenue"
     )
     out = compute_location_performance(orders)

@@ -35,8 +35,12 @@ def _amount(price_col: str, qty_col: str):
     return F.col(price_col).cast("double") * F.col(qty_col).cast("double")
 
 
-def line_item_facts(order_items: DataFrame, options: DataFrame) -> DataFrame:
-    """Per (order_id, lineitem_id): item + option revenue split into gross/discount/net."""
+def line_item_facts(order_items: DataFrame, options: DataFrame, outlier_threshold: float = 10000.0) -> DataFrame:
+    """Per (order_id, lineitem_id): item + option revenue split into gross/discount/net.
+
+    Flags is_outlier on absurd line revenue (same threshold as orders) so
+    line-item-grain gold (sales trends) can exclude the same anomalies.
+    """
     opt = options.withColumn("_amt", _amount("option_price", "option_quantity"))
     opt_agg = opt.groupBy("order_id", "lineitem_id").agg(
         F.sum("_amt").alias("options_amount"),
@@ -54,6 +58,7 @@ def line_item_facts(order_items: DataFrame, options: DataFrame) -> DataFrame:
         .withColumn("discount_amount", F.col("options_discount"))
         .withColumn("net_revenue", F.col("item_amount") + F.col("options_amount"))
         .withColumn("is_discounted", F.col("options_discount") < 0)
+        .withColumn("is_outlier", (F.col("item_amount") + F.col("options_amount")) > F.lit(outlier_threshold))
         .drop("options_amount", "options_addon")
     )
 
