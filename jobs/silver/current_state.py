@@ -12,7 +12,7 @@ Reads  <bronze>/cdc/<table>/            (all dt= partitions = full history)
 Writes <bronze>/silver/current/<table>/ (one row per current key)
 
 Run:
-    spark-submit jobs/silver_current_state.py --bronze s3://dms-...-bronze
+    spark-submit jobs/silver/current_state.py --bronze s3://dms-...-bronze
 """
 import argparse
 from typing import List
@@ -21,9 +21,9 @@ from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as F
 
 try:
-    from jobs.cdc_config import TABLES, CDC_TABLES, CDC_HEADER_COLS, TableSpec
+    from jobs.common.config import TABLES, CDC_TABLES, CDC_HEADER_COLS, TableSpec
 except ModuleNotFoundError:  # spark-submit ships files flat
-    from cdc_config import TABLES, CDC_TABLES, CDC_HEADER_COLS, TableSpec  # type: ignore
+    from common.config import TABLES, CDC_TABLES, CDC_HEADER_COLS, TableSpec  # type: ignore
 
 # Hive-style partition column Spark infers from the cdc/<table>/dt=<date>/ layout.
 PARTITION_COLS = ["dt"]

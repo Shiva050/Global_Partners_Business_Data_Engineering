@@ -4,7 +4,7 @@ import datetime
 import pytest
 from pyspark.sql import SparkSession
 
-from jobs.silver_dim_date import build_dim_date
+from jobs.silver.dim_date import build_dim_date
 
 # Snapshot columns as they arrive from DMS: DMS metadata (Op/ingested_at) +
 # source columns, with date_key as a string and booleans as strings, to prove

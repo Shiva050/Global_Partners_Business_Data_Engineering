@@ -31,9 +31,9 @@ Writes <bronze>/gold/customer_clv_daily/  (partitioned by clv_month)
 
 Run:
     # full backfill (first run)
-    spark-submit jobs/gold_customer_clv_daily.py --bronze s3://... --full
+    spark-submit jobs/gold/customer_clv_daily.py --bronze s3://... --full
     # incremental batch (orchestrator passes the batch's min order date)
-    spark-submit jobs/gold_customer_clv_daily.py --bronze s3://... \
+    spark-submit jobs/gold/customer_clv_daily.py --bronze s3://... \
         --batch-min-order-date 2023-06-01
 """
 import argparse

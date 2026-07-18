@@ -1,27 +1,36 @@
 # PySpark Jobs
 
-Flat, layer-prefixed job modules. The folder is a package (`jobs/`) so tests
-import `jobs.<module>`; each file also runs standalone via `spark-submit` (it
-falls back to a flat `import <module>` when the package root isn't on the path).
+Organized by medallion layer. `jobs/` and each layer are packages, so tests
+import `jobs.<layer>.<module>`; each file also runs standalone via
+`spark-submit` (with the package shipped via `--py-files`).
+
+```
+jobs/
+  common/config.py          table specs (keys, static flag), DMS/CDC contracts
+  bronze/snapshot_diff.py    bronze snapshots -> I/U/D change log
+  silver/current_state.py    change log -> current-state tables (CDC collapse)
+  silver/dim_date.py         static date dimension -> typed conformed dim
+  silver/order_facts.py      current-state -> revenue-enriched line/order facts
+  gold/customer_clv_daily.py order facts -> daily-evolving cumulative CLV
+```
 
 | Module | Layer | Purpose |
 |---|---|---|
-| [`cdc_config.py`](cdc_config.py) | — | table specs (keys, static flag), DMS/CDC column contracts |
-| [`cdc_snapshot_diff.py`](cdc_snapshot_diff.py) | bronze→cdc | derive the I/U/D change log by diffing snapshots |
-| [`silver_current_state.py`](silver_current_state.py) | cdc→silver | collapse the change log to current-state tables |
-| [`silver_dim_date.py`](silver_dim_date.py) | bronze→silver | typed load of the static date dimension (no CDC) |
-| [`silver_order_facts.py`](silver_order_facts.py) | silver→silver | revenue-enriched line-item + order facts |
-| [`gold_customer_clv_daily.py`](gold_customer_clv_daily.py) | silver→gold | daily-evolving cumulative CLV per customer |
+| [`common/config.py`](common/config.py) | shared | table specs (keys, static flag), DMS/CDC column contracts |
+| [`bronze/snapshot_diff.py`](bronze/snapshot_diff.py) | bronze→cdc | derive the I/U/D change log by diffing snapshots |
+| [`silver/current_state.py`](silver/current_state.py) | cdc→silver | collapse the change log to current-state tables |
+| [`silver/dim_date.py`](silver/dim_date.py) | bronze→silver | typed load of the static date dimension (no CDC) |
+| [`silver/order_facts.py`](silver/order_facts.py) | silver→silver | revenue-enriched line-item + order facts |
+| [`gold/customer_clv_daily.py`](gold/customer_clv_daily.py) | silver→gold | daily-evolving cumulative CLV per customer |
 
 **CDC vs static:** `order_items` and `order_item_options` flow through the full
 CDC pipeline (`CDC_TABLES`). `date_dim` is a static calendar dimension
-(`static=True`) — it skips CDC entirely and is loaded straight to silver with an
-enforced typed schema. Running CDC on a dimension that never changes is pure
-overhead.
+(`static=True`) — it skips CDC and is loaded straight to silver with an enforced
+typed schema. Running CDC on a dimension that never changes is pure overhead.
 
 ---
 
-## `cdc_snapshot_diff.py` — snapshot-diff CDC
+## `bronze/snapshot_diff.py` — snapshot-diff CDC
 
 Derives an append-only **I/U/D change log** from consecutive DMS full-load
 snapshots (the CDC mechanism, since the source runs SQL Server **Express** with
@@ -39,59 +48,21 @@ so Silver collapses on `cdc_seq` exactly as against a real DMS/MS-CDC feed. See
 **[../docs/cdc_design.md](../docs/cdc_design.md)** for the mechanism, the LSN
 mimic, and the expected-vs-actual fidelity contract.
 
-### Keys (verified against the 2026-07-16 snapshot — see [cdc_config.py](cdc_config.py))
+### Keys (verified against the 2026-07-16 snapshot — see [common/config.py](common/config.py))
 | Table | Strategy | Key |
 |---|---|---|
 | `order_items` | keyed diff (I/U/D) | `order_id`, `lineitem_id` — unique (203,519 rows) |
-| `order_item_options` | **multiset diff (I/D)** | none — 2,299 fully-identical dup rows, so it's a multiset; count-based diff preserves exact multiplicity |
-| `date_dim` | **static** (no CDC) | `date_key` — typed load only, `silver_dim_date.py` |
+| `order_item_options` | **multiset diff (I/D)** | none — 2,299 fully-identical dup rows; count-based diff preserves multiplicity |
+| `date_dim` | **static** (no CDC) | `date_key` — typed load only (`silver/dim_date.py`) |
 
----
-
-## `silver_current_state.py` — collapse CDC to current state
+## `silver/current_state.py` — collapse CDC to current state
 
 Applies the change log per key with the canonical log-based merge — **latest
-`cdc_seq` wins, drop `Op=D` tombstones** — producing one row per current key.
+`cdc_seq` wins, drop `Op=D` tombstones** — one row per current key. Keyed tables
+collapse by natural key; keyless `order_item_options` by **net count** over the
+full history. Swapping in a real DMS/MS-CDC feed later needs **no change here**.
 
-```
-cdc/<table>/  ──►  collapse  ──►  silver/current/<table>/
-```
-
-- Keyed tables collapse by natural key (`row_number` over `cdc_seq desc`).
-- Keyless `order_item_options` collapses by **net count** over the full history
-  (Σ +1 for I, -1 for D per distinct row).
-
-Swapping in a real DMS/MS-CDC feed later requires **no change here** — Silver
-only depends on the change-log contract (`Op` + `cdc_seq` + source columns).
-
----
-
-## Run
-
-```bash
-# CDC (auto-detects the latest two snapshot dates)
-spark-submit jobs/cdc_snapshot_diff.py --bronze s3://dms-global-partne-brusiness-bronze
-
-# CDC pinned to specific snapshots / a subset of tables
-spark-submit jobs/cdc_snapshot_diff.py \
-  --bronze s3://dms-global-partne-brusiness-bronze \
-  --snapshot-date 2026-07-16 --prev-date 2026-07-15 \
-  --tables order_items,order_item_options
-
-# Silver current state (CDC tables) + static date dimension
-spark-submit jobs/silver_current_state.py --bronze s3://dms-global-partne-brusiness-bronze
-spark-submit jobs/silver_dim_date.py      --bronze s3://dms-global-partne-brusiness-bronze
-
-# Silver revenue facts (reads current-state tables)
-spark-submit jobs/silver_order_facts.py   --bronze s3://dms-global-partne-brusiness-bronze
-
-# Gold: daily customer CLV — full backfill, then incremental per batch
-spark-submit jobs/gold_customer_clv_daily.py --bronze s3://dms-global-partne-brusiness-bronze --full
-spark-submit jobs/gold_customer_clv_daily.py --bronze s3://dms-global-partne-brusiness-bronze \
-  --batch-min-order-date 2023-06-01
-```
-
-## Gold — `gold_customer_clv_daily.py`
+## `gold/customer_clv_daily.py` — daily customer CLV
 
 Daily-evolving cumulative CLV per customer (the assessment's primary goal).
 Dense per customer from their first order to `as_of`; **month-partitioned**;
@@ -99,6 +70,25 @@ Dense per customer from their first order to `as_of`; **month-partitioned**;
 (`trunc(batch_min_order_date,'month')`), seeded by the existing cumulative at
 `floor-1` so history isn't recomputed. Emits `cumulative_clv` and
 `cumulative_order_count` (the RFM frequency-to-date).
+
+---
+
+## Run
+
+```bash
+# Bronze: CDC change log (auto-detects the latest two snapshot dates)
+spark-submit jobs/bronze/snapshot_diff.py --bronze s3://dms-global-partne-brusiness-bronze
+
+# Silver: current state (CDC tables) + static date dimension + revenue facts
+spark-submit jobs/silver/current_state.py --bronze s3://dms-global-partne-brusiness-bronze
+spark-submit jobs/silver/dim_date.py      --bronze s3://dms-global-partne-brusiness-bronze
+spark-submit jobs/silver/order_facts.py   --bronze s3://dms-global-partne-brusiness-bronze
+
+# Gold: daily CLV — full backfill, then incremental per batch
+spark-submit jobs/gold/customer_clv_daily.py --bronze s3://dms-global-partne-brusiness-bronze --full
+spark-submit jobs/gold/customer_clv_daily.py --bronze s3://dms-global-partne-brusiness-bronze \
+  --batch-min-order-date 2023-06-01
+```
 
 On **AWS Glue**, use the module as the job script and pass `--bronze` (and other
 flags) as job parameters.

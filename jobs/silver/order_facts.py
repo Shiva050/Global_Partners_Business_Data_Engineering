@@ -22,7 +22,7 @@ Reads  <bronze>/silver/current/{order_items, order_item_options}/
 Writes <bronze>/silver/facts/{order_line_items, orders}/
 
 Run:
-    spark-submit jobs/silver_order_facts.py --bronze s3://dms-...-bronze
+    spark-submit jobs/silver/order_facts.py --bronze s3://dms-...-bronze
 """
 import argparse
 

@@ -2,8 +2,8 @@
 import pytest
 from pyspark.sql import SparkSession
 
-from jobs.cdc_config import TableSpec
-from jobs.silver_current_state import collapse, collapse_keyed, collapse_multiset
+from jobs.common.config import TableSpec
+from jobs.silver.current_state import collapse, collapse_keyed, collapse_multiset
 
 KEYED = TableSpec(name="order_items", keys=["order_id", "lineitem_id"])
 MULTI = TableSpec(name="order_item_options", keys=None)

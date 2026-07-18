@@ -10,7 +10,7 @@ Reads  <bronze>/snapshots/dt=<latest>/gpb/date_dim/
 Writes <bronze>/silver/current/date_dim/
 
 Run:
-    spark-submit jobs/silver_dim_date.py --bronze s3://dms-...-bronze
+    spark-submit jobs/silver/dim_date.py --bronze s3://dms-...-bronze
 """
 import argparse
 
@@ -18,11 +18,11 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 try:
-    from jobs.cdc_config import TABLES, DMS_META_COLS
-    from jobs.cdc_snapshot_diff import normalize_columns, source_columns, list_snapshot_dates
+    from jobs.common.config import TABLES, DMS_META_COLS
+    from jobs.bronze.snapshot_diff import normalize_columns, source_columns, list_snapshot_dates
 except ModuleNotFoundError:  # spark-submit ships files flat
-    from cdc_config import TABLES, DMS_META_COLS  # type: ignore
-    from cdc_snapshot_diff import normalize_columns, source_columns, list_snapshot_dates  # type: ignore
+    from common.config import TABLES, DMS_META_COLS  # type: ignore
+    from bronze.snapshot_diff import normalize_columns, source_columns, list_snapshot_dates  # type: ignore
 
 # Enforced target schema for the conformed dimension (Spark cast types).
 DATE_DIM_TYPES = {

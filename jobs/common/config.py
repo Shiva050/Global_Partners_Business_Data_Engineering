@@ -39,7 +39,7 @@ class TableSpec:
 DMS_META_COLS = ["op", "ingested_at"]
 
 # Header columns the CDC diff attaches to every change record (see
-# jobs/cdc_snapshot_diff.add_cdc_headers). Silver strips these to recover the
+# jobs/bronze/snapshot_diff.add_cdc_headers). Silver strips these to recover the
 # source row. `Op` + `cdc_seq` drive the collapse to current state.
 CDC_HEADER_COLS = ["Op", "cdc_seq", "cdc_commit_ts", "cdc_snapshot_dt", "cdc_processed_at"]
 

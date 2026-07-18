@@ -16,7 +16,7 @@ Output shape matches what DMS CDC would have produced: the source columns plus
 `Op` (I/U/D) and audit columns `cdc_snapshot_dt` / `cdc_processed_at`.
 
 Run (EMR / spark-submit):
-    spark-submit jobs/cdc_snapshot_diff.py \
+    spark-submit jobs/bronze/snapshot_diff.py \
         --bronze s3://dms-global-partne-brusiness-bronze \
         [--snapshot-date 2026-07-16] [--prev-date 2026-07-15] \
         [--tables order_items,order_item_options,date_dim]
@@ -31,11 +31,11 @@ from typing import List, Optional
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-# Support both `python -m jobs.cdc_snapshot_diff` and `spark-submit cdc_snapshot_diff.py`
+# Support both `python -m jobs.bronze.snapshot_diff` and `spark-submit snapshot_diff.py`
 try:
-    from jobs.cdc_config import TABLES, CDC_TABLES, DMS_META_COLS, TableSpec
+    from jobs.common.config import TABLES, CDC_TABLES, DMS_META_COLS, TableSpec
 except ModuleNotFoundError:  # spark-submit ships the file without the package root
-    from cdc_config import TABLES, CDC_TABLES, DMS_META_COLS, TableSpec  # type: ignore
+    from common.config import TABLES, CDC_TABLES, DMS_META_COLS, TableSpec  # type: ignore
 
 NULL_SENTINEL = "__NULL__"  # sentinel so NULL != empty string when hashing
 

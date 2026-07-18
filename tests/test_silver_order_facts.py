@@ -4,7 +4,7 @@ import datetime
 import pytest
 from pyspark.sql import SparkSession
 
-from jobs.silver_order_facts import line_item_facts, order_facts
+from jobs.silver.order_facts import line_item_facts, order_facts
 
 # Explicit schemas (avoid NULL-only type-inference failures in CI).
 OI_SCHEMA = (

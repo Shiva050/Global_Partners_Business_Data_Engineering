@@ -5,7 +5,7 @@ import datetime
 import pytest
 from pyspark.sql import SparkSession
 
-from jobs.gold_customer_clv_daily import compute_clv_daily
+from jobs.gold.customer_clv_daily import compute_clv_daily
 
 D = datetime.date
 

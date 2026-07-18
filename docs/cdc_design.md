@@ -20,7 +20,7 @@ We deliberately run **Express + snapshot-diff** for cost/learning reasons (see
 experience* identical, the derived change log carries DMS-CDC-style header
 columns and Silver collapses on them exactly as it would on a real feed.
 
-## The change log schema (produced by `jobs/cdc_snapshot_diff.py`)
+## The change log schema (produced by `jobs/bronze/snapshot_diff.py`)
 
 | Column | Mimics DMS header | Notes |
 |---|---|---|
