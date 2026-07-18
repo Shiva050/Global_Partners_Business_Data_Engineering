@@ -1,0 +1,12 @@
+# Commit to a single light look (the validated categorical palette is a
+# light-surface palette; a dark auto-flip would fail the lightness band).
+[theme]
+base = "light"
+primaryColor = "#0072B2"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6f8"
+textColor = "#1a1a19"
+font = "sans serif"
+
+[server]
+headless = true

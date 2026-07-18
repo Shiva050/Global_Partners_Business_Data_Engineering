@@ -1,0 +1,36 @@
+{
+  "_comment": "Passed to `aws dms create-endpoint --s3-settings`. Placeholders {{...}} are substituted by scripts/setup_ingestion.sh from config.env.",
+
+  "ServiceAccessRoleArn": "arn:aws:iam::{{AWS_ACCOUNT_ID}}:role/{{DMS_S3_ROLE_NAME}}",
+  "BucketName": "{{BRONZE_BUCKET}}",
+  "BucketFolder": "{{BRONZE_PREFIX}}",
+
+  "DataFormat": "parquet",
+  "ParquetVersion": "parquet-2-0",
+  "ParquetTimestampInMillisecond": true,
+  "EncryptionMode": "SSE_S3",
+
+  "IncludeOpForFullLoad": true,
+  "CdcInsertsAndUpdates": false,
+  "CdcInsertsOnly": false,
+
+  "AddColumnName": true,
+  "TimestampColumnName": "ingested_at",
+
+  "DatePartitionEnabled": true,
+  "DatePartitionSequence": "YYYYMMDD",
+  "DatePartitionDelimiter": "SLASH",
+
+  "CdcMaxBatchInterval": 60,
+  "CdcMinFileSize": 32000,
+
+  "PreserveTransactions": false,
+  "CdcPath": "cdc-changes",
+
+  "_notes": {
+    "IncludeOpForFullLoad": "Adds the Op column (I/U/D) to full-load rows too, so bronze has ONE unified schema across full load + CDC. Full-load rows get Op='I'.",
+    "TimestampColumnName": "Emits `ingested_at` = commit timestamp for CDC rows, load time for full-load rows. This is your batch/partition watermark.",
+    "DatePartition*": "Writes objects under .../schema/table/YYYY/MM/DD/ so downstream Spark reads can prune by day.",
+    "CdcPath": "Full-load files land at BucketFolder/schema/table/; ongoing CDC files land under BucketFolder/cdc-changes/schema/table/ — keeps the immutable initial snapshot separate from the append-only change log."
+  }
+}

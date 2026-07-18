@@ -1,0 +1,63 @@
+{
+  "TargetMetadata": {
+    "SupportLobs": true,
+    "FullLobMode": false,
+    "LimitedSizeLobMode": true,
+    "LobMaxSize": 32,
+    "ParallelLoadThreads": 0
+  },
+  "FullLoadSettings": {
+    "TargetTablePrepMode": "DO_NOTHING",
+    "MaxFullLoadSubTasks": 3,
+    "TransactionConsistencyTimeout": 600,
+    "CommitRate": 10000
+  },
+  "Logging": {
+    "EnableLogging": true,
+    "LogComponents": [
+      { "Id": "SOURCE_CAPTURE",  "Severity": "LOGGER_SEVERITY_DEFAULT" },
+      { "Id": "TARGET_APPLY",    "Severity": "LOGGER_SEVERITY_DEFAULT" },
+      { "Id": "SOURCE_UNLOAD",   "Severity": "LOGGER_SEVERITY_DEFAULT" },
+      { "Id": "TARGET_LOAD",     "Severity": "LOGGER_SEVERITY_DEFAULT" },
+      { "Id": "TASK_MANAGER",    "Severity": "LOGGER_SEVERITY_DEFAULT" }
+    ]
+  },
+  "ControlTablesSettings": {
+    "ControlSchema": "",
+    "HistoryTimeslotInMinutes": 5,
+    "HistoryTableEnabled": true,
+    "SuspendedTablesTableEnabled": true,
+    "StatusTableEnabled": true
+  },
+  "ChangeProcessingTuning": {
+    "BatchApplyPreserveTransaction": true,
+    "BatchApplyTimeoutMin": 1,
+    "BatchApplyTimeoutMax": 30,
+    "BatchApplyMemoryLimit": 500,
+    "MinTransactionSize": 1000,
+    "CommitTimeout": 1,
+    "MemoryLimitTotal": 1024,
+    "MemoryKeepTime": 60,
+    "StatementCacheSize": 50
+  },
+  "ErrorBehavior": {
+    "DataErrorPolicy": "LOG_ERROR",
+    "TableErrorPolicy": "SUSPEND_TABLE",
+    "RecoverableErrorCount": -1,
+    "RecoverableErrorInterval": 10,
+    "RecoverableErrorThrottling": true,
+    "RecoverableErrorThrottlingMax": 1800,
+    "ApplyErrorDeletePolicy": "IGNORE_RECORD",
+    "ApplyErrorInsertPolicy": "LOG_ERROR",
+    "ApplyErrorUpdatePolicy": "LOG_ERROR",
+    "FullLoadIgnoreConflicts": true
+  },
+  "ValidationSettings": {
+    "EnableValidation": false
+  },
+  "_notes": {
+    "TargetTablePrepMode=DO_NOTHING": "S3 target is append-only; never truncate/drop. Every re-run appends new files, preserving immutability.",
+    "RecoverableErrorCount=-1": "Retry recoverable errors indefinitely — this is the failure/reload resilience: a dropped source connection auto-resumes from the last checkpoint instead of failing the task.",
+    "HistoryTableEnabled": "DMS writes replication stats to awsdms_apply_exceptions / history for auditing lag & row counts."
+  }
+}
