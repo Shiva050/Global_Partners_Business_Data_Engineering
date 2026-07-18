@@ -65,7 +65,7 @@ def run(spark, bronze):
 def main(argv=None):
     p = argparse.ArgumentParser(description="Gold — loyalty impact")
     p.add_argument("--bronze", required=True)
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
     spark = SparkSession.builder.appName("gpb-gold-loyalty").getOrCreate()
     run(spark, args.bronze)
     spark.stop()

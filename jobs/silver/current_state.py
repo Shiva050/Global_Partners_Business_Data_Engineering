@@ -81,7 +81,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="Silver — collapse CDC to current state")
     p.add_argument("--bronze", required=True)
     p.add_argument("--tables", help="Comma-separated subset (default: all)")
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-silver-current-state").getOrCreate()
     names = args.tables.split(",") if args.tables else list(CDC_TABLES)

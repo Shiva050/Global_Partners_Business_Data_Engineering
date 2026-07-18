@@ -99,7 +99,7 @@ def run(spark: SparkSession, bronze: str):
 def main(argv=None):
     p = argparse.ArgumentParser(description="Silver — revenue-enriched order facts")
     p.add_argument("--bronze", required=True)
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-silver-order-facts").getOrCreate()
     run(spark, args.bronze)

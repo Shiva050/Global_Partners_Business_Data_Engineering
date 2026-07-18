@@ -182,7 +182,7 @@ def main(argv=None):
     p.add_argument("--full", action="store_true", help="Full backfill (recompute everything)")
     p.add_argument("--batch-min-order-date", help="Min order_date of the current ingest batch")
     p.add_argument("--as-of", help="Window end (default: max order_date)")
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-gold-clv-daily").getOrCreate()
     run(spark, args.bronze, args.full, args.batch_min_order_date, args.as_of)

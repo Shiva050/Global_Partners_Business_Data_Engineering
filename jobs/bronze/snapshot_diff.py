@@ -243,7 +243,7 @@ def main(argv: Optional[List[str]] = None):
     p.add_argument("--snapshot-date", help="Current snapshot date (default: latest)")
     p.add_argument("--prev-date", help="Previous snapshot date (default: the one before current)")
     p.add_argument("--tables", help="Comma-separated subset (default: all)")
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-cdc-snapshot-diff").getOrCreate()
 

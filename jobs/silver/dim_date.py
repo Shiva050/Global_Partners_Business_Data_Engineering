@@ -51,7 +51,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="Silver — typed static date dimension")
     p.add_argument("--bronze", required=True)
     p.add_argument("--snapshot-date", help="Snapshot to load (default: latest)")
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-silver-dim-date").getOrCreate()
 

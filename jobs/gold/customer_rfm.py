@@ -113,7 +113,7 @@ def main(argv=None):
     p.add_argument("--bronze", required=True)
     p.add_argument("--as-of", help="Reference date (default: max order_date)")
     p.add_argument("--lookback-months", type=int, default=12)
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-gold-rfm").getOrCreate()
     run(spark, args.bronze, args.as_of, args.lookback_months)

@@ -123,7 +123,7 @@ def main(argv=None):
     p.add_argument("--at-risk-days", type=int, default=45)
     p.add_argument("--dormant-days", type=int, default=90)
     p.add_argument("--period-days", type=int, default=30)
-    args = p.parse_args(argv)
+    args, _ = p.parse_known_args(argv)  # ignore Glue-injected args (--JOB_NAME etc.)
 
     spark = SparkSession.builder.appName("gpb-gold-churn").getOrCreate()
     run(spark, args.bronze, args.as_of, args.at_risk_days, args.dormant_days, args.period_days)
