@@ -24,6 +24,7 @@ jobs/
 | [`gold/customer_clv_daily.py`](gold/customer_clv_daily.py) | silver→gold | daily-evolving cumulative CLV per customer |
 | [`gold/customer_rfm.py`](gold/customer_rfm.py) | silver→gold | RFM scores + segments (VIP/New/Churn Risk) |
 | [`gold/customer_clv_tiers.py`](gold/customer_clv_tiers.py) | silver→gold | CLV value tiers (High/Medium/Low = 20/60/20) |
+| [`gold/churn_indicators.py`](gold/churn_indicators.py) | silver→gold | activity profile: days-since-last, avg gap, spend trend, at-risk tags |
 
 **CDC vs static:** `order_items` and `order_item_options` flow through the full
 CDC pipeline (`CDC_TABLES`). `date_dim` is a static calendar dimension
@@ -97,6 +98,10 @@ spark-submit jobs/gold/customer_rfm.py --bronze s3://dms-global-partne-brusiness
 
 # Gold: CLV value tiers (High/Medium/Low)
 spark-submit jobs/gold/customer_clv_tiers.py --bronze s3://dms-global-partne-brusiness-bronze
+
+# Gold: churn activity indicators
+spark-submit jobs/gold/churn_indicators.py --bronze s3://dms-global-partne-brusiness-bronze \
+  --at-risk-days 45 --dormant-days 90
 ```
 
 On **AWS Glue**, use the module as the job script and pass `--bronze` (and other
