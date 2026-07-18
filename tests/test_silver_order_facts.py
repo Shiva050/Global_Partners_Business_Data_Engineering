@@ -60,6 +60,24 @@ def test_line_item_with_addon_and_discount(spark):
     assert r["is_discounted"] is True
 
 
+def test_multiple_options_do_not_fan_out(spark):
+    # One line item with THREE options must stay ONE row (options summed), not
+    # three — otherwise item revenue is multiplied and CLV is corrupted.
+    oi = [("o1", "l1", "u1", "r1", "web", "USD", True, "2023-05-10 12:00:00",
+           "Entree", "Bowl", 10.0, 1)]
+    oo = [
+        ("o1", "l1", "Extras", "Guac", 1.5, 1),
+        ("o1", "l1", "Extras", "Cheese", 1.0, 1),
+        ("o1", "l1", "Promo", "Coupon", -2.0, 1),
+    ]
+    li = line_item_facts(_oi(spark, oi), _oo(spark, oo))
+    assert li.count() == 1                       # no fan-out
+    r = li.collect()[0]
+    assert r["item_amount"] == 10.0
+    assert r["gross_revenue"] == 12.5            # 10 + 1.5 + 1.0
+    assert r["net_revenue"] == 10.5              # 10 + (1.5 + 1.0 - 2.0)
+
+
 def test_line_item_without_options(spark):
     oi = [("o1", "l1", "u1", "r1", "web", "USD", False, "2023-05-10 12:00:00",
            "Drink", "Soda", 3.0, 4)]
