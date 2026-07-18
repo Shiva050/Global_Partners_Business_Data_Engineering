@@ -14,38 +14,35 @@ GitHub Actions CI pipeline.
 
 ## Architecture
 
+![AWS architecture](docs/architecture.png)
+
+> Editable source: [docs/architecture.drawio](docs/architecture.drawio) (open in
+> [draw.io](https://app.diagrams.net) or the VS Code *Draw.io Integration*
+> extension → **Export as PNG** → `docs/architecture.png`).
+
+**Data flow:** SQL Server (RDS) → **AWS DMS** full-load → **S3 bronze** immutable
+snapshots → snapshot-diff **CDC change log** → **AWS Glue (PySpark)** collapse to
+**S3 silver** current-state + revenue facts → Glue **8 gold** metric tables →
+**Streamlit** dashboard. **Step Functions** orchestrates the Glue jobs; IAM,
+Secrets Manager, and CloudWatch are cross-cutting; **GitHub Actions** runs the
+unit tests on every push.
+
+<details>
+<summary>Logical flow (Mermaid, renders inline without export)</summary>
+
 ```mermaid
 flowchart LR
-    subgraph src[Source]
-      RDS[(SQL Server<br/>RDS)]
-    end
-    subgraph ingest[Ingestion · AWS DMS]
-      DMS[DMS full-load<br/>snapshots]
-    end
-    subgraph s3[S3 · Medallion Lake]
-      BR[bronze<br/>snapshots + CDC log]
-      SV[silver<br/>current-state + facts]
-      GD[gold<br/>metrics]
-    end
-    subgraph compute[Transform · PySpark on Glue]
-      B1[snapshot-diff CDC]
-      S1[collapse to current state]
-      S2[revenue facts + dim date]
-      G1[8 gold metrics]
-    end
-    DASH[Streamlit<br/>dashboard]
-
-    RDS --> DMS --> BR
-    BR --> B1 --> BR
-    BR --> S1 --> SV
-    BR --> S2 --> SV
-    SV --> G1 --> GD
-    GD --> DASH
+    RDS[(SQL Server<br/>RDS)] --> DMS[AWS DMS<br/>full-load]
+    DMS --> BR[S3 bronze<br/>snapshots + CDC log]
+    BR --> G1[Glue: CDC diff<br/>+ collapse + facts]
+    G1 --> SV[S3 silver<br/>current-state + facts]
+    SV --> G2[Glue: 8 gold metrics]
+    G2 --> GD[S3 gold<br/>metric tables]
+    GD --> DASH[Streamlit<br/>dashboard]
+    SFN[Step Functions] -. orchestrates .-> G1
+    SFN -. orchestrates .-> G2
 ```
-
-**Data flow:** SQL Server (RDS) → DMS full-load → **bronze** immutable snapshots →
-snapshot-diff **CDC change log** → **silver** current-state + revenue facts →
-**gold** metric tables → **Streamlit** dashboard.
+</details>
 
 ---
 

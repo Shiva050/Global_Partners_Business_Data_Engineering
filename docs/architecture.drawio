@@ -1,0 +1,106 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="gpb-arch" name="GPB Architecture">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Global Partners — Business Insights Data Platform (AWS)" style="text;html=1;fontSize=20;fontStyle=1;align=center;fontColor=#232F3E;" vertex="1" parent="1">
+          <mxGeometry x="360" y="20" width="680" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- AWS Cloud container -->
+        <mxCell id="cloud" value="AWS Cloud — us-east-1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="70" width="1280" height="560" as="geometry" />
+        </mxCell>
+
+        <!-- Group: Ingestion -->
+        <mxCell id="grp_ing" value="Ingestion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#5A6C86;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#5A6C86;" vertex="1" parent="1">
+          <mxGeometry x="90" y="150" width="330" height="180" as="geometry" />
+        </mxCell>
+        <!-- Group: Medallion + Transform -->
+        <mxCell id="grp_lake" value="Medallion Lake (S3) + Transform (PySpark on AWS Glue)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#5A6C86;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#5A6C86;" vertex="1" parent="1">
+          <mxGeometry x="440" y="150" width="720" height="180" as="geometry" />
+        </mxCell>
+        <!-- Group: Consumption -->
+        <mxCell id="grp_con" value="Consumption" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#5A6C86;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#5A6C86;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="150" width="140" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- Orchestration: Step Functions -->
+        <mxCell id="sfn" value="AWS Step Functions&#10;orchestrates the pipeline" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.step_functions;" vertex="1" parent="1">
+          <mxGeometry x="760" y="100" width="78" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- RDS -->
+        <mxCell id="rds" value="SQL Server (RDS)&#10;Express · gpb schema" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#C925D1;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;" vertex="1" parent="1">
+          <mxGeometry x="130" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+        <!-- DMS -->
+        <mxCell id="dms" value="AWS DMS&#10;full-load + CDC" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.database_migration_service;" vertex="1" parent="1">
+          <mxGeometry x="300" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Bronze -->
+        <mxCell id="s3b" value="S3 — Bronze&#10;snapshots + CDC log" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.simple_storage_service;" vertex="1" parent="1">
+          <mxGeometry x="470" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+        <!-- Glue Bronze->Silver -->
+        <mxCell id="glbs" value="AWS Glue&#10;CDC diff · collapse · facts" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.glue;" vertex="1" parent="1">
+          <mxGeometry x="610" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+        <!-- S3 Silver -->
+        <mxCell id="s3s" value="S3 — Silver&#10;current-state + facts" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.simple_storage_service;" vertex="1" parent="1">
+          <mxGeometry x="750" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+        <!-- Glue Silver->Gold -->
+        <mxCell id="glsg" value="AWS Glue&#10;8 gold metrics" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.glue;" vertex="1" parent="1">
+          <mxGeometry x="890" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+        <!-- S3 Gold -->
+        <mxCell id="s3g" value="S3 — Gold&#10;metric tables" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.simple_storage_service;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="200" width="78" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- Streamlit (non-AWS) -->
+        <mxCell id="st" value="Streamlit&#10;Dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#FF4B4B;fontColor=#232F3E;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="200" width="100" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- Cross-cutting -->
+        <mxCell id="sm" value="Secrets Manager&#10;RDS credentials" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;" vertex="1" parent="1">
+          <mxGeometry x="300" y="400" width="70" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="iam" value="IAM&#10;service roles" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management_iam;" vertex="1" parent="1">
+          <mxGeometry x="470" y="400" width="70" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="cw" value="CloudWatch&#10;job logs" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;" vertex="1" parent="1">
+          <mxGeometry x="640" y="400" width="70" height="70" as="geometry" />
+        </mxCell>
+        <!-- GitHub Actions (non-AWS, CI) -->
+        <mxCell id="gh" value="GitHub Actions&#10;CI · pytest on push" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#24292E;fontColor=#232F3E;fontSize=11;fontStyle=1;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="980" y="405" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: main flow -->
+        <mxCell id="e1" value="full-load + CDC" style="endArrow=block;html=1;fontSize=10;strokeColor=#232F3E;" edge="1" parent="1" source="rds" target="dms"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" value="Parquet" style="endArrow=block;html=1;fontSize=10;strokeColor=#232F3E;" edge="1" parent="1" source="dms" target="s3b"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" style="endArrow=block;html=1;strokeColor=#232F3E;" edge="1" parent="1" source="s3b" target="glbs"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="collapse + facts" style="endArrow=block;html=1;fontSize=10;strokeColor=#232F3E;" edge="1" parent="1" source="glbs" target="s3s"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" style="endArrow=block;html=1;strokeColor=#232F3E;" edge="1" parent="1" source="s3s" target="glsg"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" value="8 metrics" style="endArrow=block;html=1;fontSize=10;strokeColor=#232F3E;" edge="1" parent="1" source="glsg" target="s3g"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" value="boto3 read" style="endArrow=block;html=1;fontSize=10;strokeColor=#232F3E;" edge="1" parent="1" source="s3g" target="st"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Orchestration edges (dashed) -->
+        <mxCell id="o1" value="startJobRun.sync" style="endArrow=open;dashed=1;html=1;fontSize=9;strokeColor=#E7157B;" edge="1" parent="1" source="sfn" target="glbs"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="o2" style="endArrow=open;dashed=1;html=1;strokeColor=#E7157B;" edge="1" parent="1" source="sfn" target="glsg"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <!-- Cross-cutting edges (dashed) -->
+        <mxCell id="c1" value="credentials" style="endArrow=open;dashed=1;html=1;fontSize=9;strokeColor=#DD344C;" edge="1" parent="1" source="sm" target="dms"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c2" value="assume role" style="endArrow=open;dashed=1;html=1;fontSize=9;strokeColor=#DD344C;" edge="1" parent="1" source="iam" target="glbs"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c3" value="logs" style="endArrow=open;dashed=1;html=1;fontSize=9;strokeColor=#E7157B;" edge="1" parent="1" source="glsg" target="cw"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
