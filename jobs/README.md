@@ -11,6 +11,7 @@ falls back to a flat `import <module>` when the package root isn't on the path).
 | [`silver_current_state.py`](silver_current_state.py) | cdc→silver | collapse the change log to current-state tables |
 | [`silver_dim_date.py`](silver_dim_date.py) | bronze→silver | typed load of the static date dimension (no CDC) |
 | [`silver_order_facts.py`](silver_order_facts.py) | silver→silver | revenue-enriched line-item + order facts |
+| [`gold_customer_clv_daily.py`](gold_customer_clv_daily.py) | silver→gold | daily-evolving cumulative CLV per customer |
 
 **CDC vs static:** `order_items` and `order_item_options` flow through the full
 CDC pipeline (`CDC_TABLES`). `date_dim` is a static calendar dimension
@@ -83,7 +84,21 @@ spark-submit jobs/silver_dim_date.py      --bronze s3://dms-global-partne-brusin
 
 # Silver revenue facts (reads current-state tables)
 spark-submit jobs/silver_order_facts.py   --bronze s3://dms-global-partne-brusiness-bronze
+
+# Gold: daily customer CLV — full backfill, then incremental per batch
+spark-submit jobs/gold_customer_clv_daily.py --bronze s3://dms-global-partne-brusiness-bronze --full
+spark-submit jobs/gold_customer_clv_daily.py --bronze s3://dms-global-partne-brusiness-bronze \
+  --batch-min-order-date 2023-06-01
 ```
+
+## Gold — `gold_customer_clv_daily.py`
+
+Daily-evolving cumulative CLV per customer (the assessment's primary goal).
+Dense per customer from their first order to `as_of`; **month-partitioned**;
+**windowed incremental** — a late order recomputes only months `>= floor`
+(`trunc(batch_min_order_date,'month')`), seeded by the existing cumulative at
+`floor-1` so history isn't recomputed. Emits `cumulative_clv` and
+`cumulative_order_count` (the RFM frequency-to-date).
 
 On **AWS Glue**, use the module as the job script and pass `--bronze` (and other
 flags) as job parameters.
