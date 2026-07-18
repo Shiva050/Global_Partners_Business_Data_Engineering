@@ -18,6 +18,7 @@ JOBS=(
   "gpb-gold-loyalty|gold/loyalty_impact.py|"
   "gpb-gold-location|gold/location_performance.py|"
   "gpb-gold-discount|gold/discount_effectiveness.py|"
+  "gpb-gold-clv-trends|gold/clv_trends.py|"
 )
 
 for entry in "${JOBS[@]}"; do
